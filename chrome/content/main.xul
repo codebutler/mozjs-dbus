@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+
+<!--
+   DBUS.jsm: 
+  
+   Authors:
+     Eric Butler <eric@extremeboredom.net>
+  
+    This file is part of mozjs-dbus.
+  
+    mozjs-dbus is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+  
+    mozjs-dbus is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+  
+    You should have received a copy of the GNU General Public License
+    along with mozjs-dbus.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<window id="main" title="My App" width="300" height="300"
+    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+	<script type="text/javascript">
+
+		try {
+			Components.utils.import("resource://app/components/DBUS.jsm");
+
+			var bus   = DBUS.getSystemBus();
+			var proxy = bus.getObject("org.freedesktop.NetworkManager",
+						  "/org/freedesktop/NetworkManager/Devices/ath0");
+			//alert(proxy.getName());
+			
+			alert(proxy.Mogrify("a","B"));
+			alert(proxy.Bazify(1,2,3));
+			alert(proxy.Bazify('asdas'));
+
+		} catch (ex) {
+			alert(ex);
+		}
+	</script>
+
+	<caption label="Hello World"/>
+</window>
