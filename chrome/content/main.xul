@@ -27,21 +27,41 @@
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
 	<script type="text/javascript">
-
 		try {
 			Components.utils.import("resource://app/components/DBUS.jsm");
 
+			/*
 			var bus   = DBUS.getSystemBus();
+
 			var proxy = bus.getObject("org.freedesktop.NetworkManager",
-						  "/org/freedesktop/NetworkManager/Devices/ath0");
-			//alert(proxy.getName());
+						  "/org/freedesktop/NetworkManager/Devices/ath0",
+						  "org.freedesktop.NetworkManager.Interface");
+			alert(proxy.getName());
+			*/
+
+			/*
+			var remoteObject = bus.getObject("org.freedesktop.DBus",
+			                                 "/org/freedesktop/DBus",
+							 "org.freedesktop.DBus");
+			alert(remoteObject.ListNames());
+			*/
+
+			/*
+			var power = bus.getObject("org.freedesktop.PowerManagement",
+			                          "/org/freedesktop/PowerManagement",
+				                  "org.freedesktop.PowerManagement");
+			*/
+
+			var bus = DBUS.getSessionBus();
+			var gajim = bus.getObject("org.gajim.dbus",
+			                          "/org/gajim/dbus/RemoteObject",
+			                          "org.gajim.dbus.RemoteInterface");
+
+			alert(gajim.get_status("christian.hergert@gmail.com"));
 			
-			alert(proxy.Mogrify("a","B"));
-			alert(proxy.Bazify(1,2,3));
-			alert(proxy.Bazify('asdas'));
 
 		} catch (ex) {
-			alert(ex);
+			alert('PANIC: ' + ex);
 		}
 	</script>
 

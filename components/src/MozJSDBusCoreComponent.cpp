@@ -21,42 +21,36 @@
  *
  */
 
+#include <stdio.h>
 #include "MozJSDBusCoreComponent.h"
-#include "nsIPropertyBag.h"
-#include "nsIWritablePropertyBag.h"
-#include "nsStringAPI.h"
-#include "nsCOMPtr.h"
-#include "nsComponentManagerUtils.h"
+
+#include "../../../toolkit/system/dbus/nsDBusService.h"
+
+// Kitchen sink on the way
 #include "nsIArray.h"
 #include "nsTArray.h"
+#include "nsStringAPI.h"
+#include "nsEmbedString.h"
+#include "nsIPropertyBag.h"
+#include "nsIWritablePropertyBag.h"
+#include "nsCOMPtr.h"
+#include "nsComponentManagerUtils.h"
 #include "nsXPCOMCID.h"
 #include "nsISupportsImpl.h"
 #include "nsISupportsPrimitives.h"
 #include "nsIVariant.h"
-#include "nsEmbedString.h"
 #include "nsIMutableArray.h"
-#include <stdio.h>
 
 NS_IMPL_ISUPPORTS1(MozJSDBusCoreComponent, IMozJSDBusCoreComponent)
 
 MozJSDBusCoreComponent::MozJSDBusCoreComponent()
 {
-  /* member initializers and constructor code */
+	// Constructor?
 }
 
 MozJSDBusCoreComponent::~MozJSDBusCoreComponent()
 {
-  /* destructor code */
-}
-
-NS_IMETHODIMP MozJSDBusCoreComponent::Introspect(const nsACString &busName,
-                                      const nsACString &serviceName,
-				      const nsACString &objectPath,
-				      nsACString &result)
-{
-	result.Assign("<node name=\"/org/freedesktop/sample_object\">           <interface name=\"org.freedesktop.SampleInterface\">             <method name=\"Frobate\">               <arg name=\"foo\" type=\"i\" direction=\"in\"/>               <arg name=\"bar\" type=\"s\" direction=\"out\"/>               <arg name=\"baz\" type=\"a{us}\" direction=\"out\"/>               <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>             </method>             <method name=\"Bazify\">               <arg name=\"bar\" type=\"(iiu)\" direction=\"in\"/>               <arg name=\"bar\" type=\"v\" direction=\"out\"/>             </method>             <method name=\"Mogrify\">               <arg name=\"bar\" type=\"(iiav)\" direction=\"in\"/>             </method>             <signal name=\"Changed\">               <arg name=\"new_value\" type=\"b\"/>             </signal>             <property name=\"Bar\" type=\"y\" access=\"readwrite\"/>           </interface>           <node name=\"child_of_sample_object\"/>           <node name=\"another_child_of_sample_object\"/>        </node>        ");
-
-	return NS_OK;
+	// Destructor?
 }
 
 NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
@@ -69,17 +63,47 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 				      nsIVariant **_retval)
 {
 	nsresult rv;
-/*
+
+	DBusError error;
+	dbus_error_init(&error);
+
+	DBusConnection *connection;
+
+	// XXX: Use a switch and an enum here instead of this nonsense!
+	if (busName == "system") {
+		connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
+	} else if (busName == "session") {
+		connection = dbus_bus_get(DBUS_BUS_SESSION, &error);
+	} else {
+		printf("bad bus name");
+		return NS_ERROR_FAILURE;
+	}
+
+	// XXX: Do error checking here
+
 	DBusMessage *message;
 	DBusMessageIter iter;
 
-	message = dbus_message_new_method_call(serviceName,
-					       objectPath,
-					       interface,
-					       methodName);
+	// XXX: Is there a macro that could clean all this up?
+
+	const char* cServiceName;
+	NS_CStringGetData(serviceName, &cServiceName);
+
+	const char* cObjectPath;
+	NS_CStringGetData(objectPath, &cObjectPath);
+
+	const char* cInterface;
+	NS_CStringGetData(interface, &cInterface);
+
+	const char* cMethodName;
+	NS_CStringGetData(methodName, &cMethodName);
+
+	message = dbus_message_new_method_call(cServiceName,
+					       cObjectPath,
+					       cInterface,
+					       cMethodName);
 
 	dbus_message_iter_init_append(message, &iter);
- */
 
 	for (PRUint32 x = 0; x < argsLength; x++) {
 		nsIVariant *arg = args[x];
@@ -94,21 +118,42 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 	 	// dbus_message_iter_append_basic(&iter, arg->GetAsF0obar);
 	}
 
-	// dbus_connection_send(dbus_conn, message, NULL);
-	// dbus_message_unref(message);
+	DBusMessage *reply; 
 
+	dbus_error_init(&error);
+	reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
+
+	if (reply == NULL) {
+		if (dbus_error_is_set(&error)) {
+			printf("Error sending DBUS message: %s\n", error.message);
+			dbus_error_free(&error);
+			return NS_ERROR_FAILURE;
+		}
+	}
+	
 	nsCOMPtr<nsIWritableVariant> variant =
 		do_CreateInstance("@mozilla.org/variant;1", &rv);
-
 	if (NS_FAILED(rv)) {
 		PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
 		return NS_ERROR_FAILURE;
 	}
 
-	variant->SetAsString("happydance");
+	dbus_message_iter_init(reply, &iter);
+	int current_type;
+	while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID) {
+		printf ("type in response %d \n ", current_type);
+		if (current_type == DBUS_TYPE_STRING) {
+			char* value;
+			dbus_message_iter_get_basic(&iter, &value);
+
+			variant->SetAsString(value);
+		}
+
+		break;
+   		//dbus_message_iter_next (&iter);
+	}
 
 	NS_ADDREF(*_retval = variant);
 	return NS_OK;
 }
-
 

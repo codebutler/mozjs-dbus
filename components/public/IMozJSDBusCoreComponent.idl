@@ -27,10 +27,6 @@
 [scriptable, uuid(90758a97-a6f3-4ea4-8953-16bd2ee3a977)]
 interface IMozJSDBusCoreComponent : nsISupports
 {
-  ACString Introspect(in ACString busName,
-                      in ACString serviceName,
-		      in ACString objectPath);
-
   nsIVariant CallMethod(in ACString busName,
                         in ACString serviceName,
                         in ACString objectPath,

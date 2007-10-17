@@ -49,9 +49,18 @@ function DBusConnection(busName) {
 	}
 	this.busName = busName;
 }
-DBusConnection.prototype.getObject = function(serviceName, objectPath) {
+DBusConnection.prototype.getObject = function(serviceName, objectPath, interfaceName) {
 	// Get the introspection xml
-	var xml = DBUS.core.Introspect(this.busName, serviceName, objectPath);
+	// XXX: We need to first check if this object supports introspection!!
+	var xml = DBUS.core.CallMethod(this.busName,
+	                               serviceName,
+				       objectPath,
+				       "org.freedesktop.DBus.Introspectable",
+				       "Introspect",
+				       0,
+				       []);
+	dump(xml);
+	xml = xml.replace(/^.*\n/, ""); // HACK! Get rid of first line (DOCTYPE)
 	xml = new XML(xml);
 
 	// Parse the xml
@@ -59,15 +68,17 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath) {
 
 	// Create proxy object
 	var proxy = {};
+	proxy.connection = this;
 	proxy.serviceName = serviceName;
 	proxy.objectPath = objectPath;
+	proxy.interfaceName = interfaceName;
 
 	// Create wrapper function for low-level dbus call
 	proxy.callMethod = function (methodName, methodArgs) {
-		return DBUS.core.CallMethod(this.busName,
+		return DBUS.core.CallMethod(this.connection.busName,
 				            this.serviceName,
 				            this.objectPath,
-				            null, // interface
+				            this.interfaceName,
 				            methodName,
 		                            methodArgs.length,
 				            methodArgs);
