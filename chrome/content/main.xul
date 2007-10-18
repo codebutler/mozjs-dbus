@@ -30,35 +30,25 @@
 		try {
 			Components.utils.import("resource://app/components/DBUS.jsm");
 
-			/*
-			var bus   = DBUS.getSystemBus();
+			Components.utils.import("resource://app/components/IPAddress");
 
-			var proxy = bus.getObject("org.freedesktop.NetworkManager",
-						  "/org/freedesktop/NetworkManager/Devices/ath0",
-						  "org.freedesktop.NetworkManager.Interface");
-			alert(proxy.getName());
-			*/
+			var bus = DBUS.getSystemBus();
 
-			/*
-			var remoteObject = bus.getObject("org.freedesktop.DBus",
-			                                 "/org/freedesktop/DBus",
-							 "org.freedesktop.DBus");
-			alert(remoteObject.ListNames());
-			*/
+			// NetworkManager does not support introspection, so we specify
+			// what this interface supports.
+			var nmInterface = {
+				   name: "org.freedesktop.NetworkManager.Interface",
+				methods: [ 'getName', 'getIP4Address' ]
+			};
 
-			/*
-			var power = bus.getObject("org.freedesktop.PowerManagement",
-			                          "/org/freedesktop/PowerManagement",
-				                  "org.freedesktop.PowerManagement");
-			*/
-
-			var bus = DBUS.getSessionBus();
-			var gajim = bus.getObject("org.gajim.dbus",
-			                          "/org/gajim/dbus/RemoteObject",
-			                          "org.gajim.dbus.RemoteInterface");
-
-			alert(gajim.get_status("christian.hergert@gmail.com"));
+			// Get the proxy object
+			var ath0 = bus.getObject("org.freedesktop.NetworkManager",
+			                         "/org/freedesktop/NetworkManager/Devices/ath0",
+						 nmInterface);
 			
+			var name = ath0.getName();
+			var ip = new IPAddress(ath0.getIP4Address());
+			alert("Name: " + name + ", Address: "+ ip.toString());
 
 		} catch (ex) {
 			alert('PANIC: ' + ex);

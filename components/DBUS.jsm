@@ -36,12 +36,8 @@ var DBUS = {
 	}
 };
 
-try {
-	var klass = Components.classes["@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"];
-	DBUS.core = klass.createInstance(Components.interfaces.IMozJSDBusCoreComponent);
-} catch (e) {
-	alert(e);
-}
+var klass = Components.classes["@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"];
+DBUS.core = klass.createInstance(Components.interfaces.IMozJSDBusCoreComponent);
 
 function DBusConnection(busName) {
 	if (["session", "system"].indexOf(busName) == -1) {
@@ -49,22 +45,37 @@ function DBusConnection(busName) {
 	}
 	this.busName = busName;
 }
-DBusConnection.prototype.getObject = function(serviceName, objectPath, interfaceName) {
-	// Get the introspection xml
-	// XXX: We need to first check if this object supports introspection!!
-	var xml = DBUS.core.CallMethod(this.busName,
-	                               serviceName,
-				       objectPath,
-				       "org.freedesktop.DBus.Introspectable",
-				       "Introspect",
-				       0,
-				       []);
-	dump(xml);
-	xml = xml.replace(/^.*\n/, ""); // HACK! Get rid of first line (DOCTYPE)
-	xml = new XML(xml);
 
-	// Parse the xml
-	var objectInterface = DBusXMLParser.parse(xml);
+DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
+	
+	if (typeof(iface) == 'string') {
+		var interfaceName = iface;
+
+		// Get the introspection xml
+		// XXX: We need to first check if this object supports introspection!!
+		var xml = DBUS.core.CallMethod(this.busName,
+					       serviceName,
+					       objectPath,
+					       "org.freedesktop.DBus.Introspectable",
+					       "Introspect",
+					       0,
+					       []);
+
+		// DOCTYPE isnt supported by E4X
+		xml = xml.replace(/<!DOCTYPE[^>]+>/, '');
+
+		xml = new XML(xml);
+
+		// Parse the xml
+		var objectInterface = DBusXMLParser.parse(xml);
+	} else {
+		var interfaceName = iface.name;
+
+		var objectInterface = new DBusInterface();
+		objectInterface.methods = iface.methods.map(function(methodName) {
+			return new DBusMethod(methodName);
+		});
+	}
 
 	// Create proxy object
 	var proxy = {};
@@ -75,6 +86,10 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, interface
 
 	// Create wrapper function for low-level dbus call
 	proxy.callMethod = function (methodName, methodArgs) {
+		if (methodArgs == null) {
+			methodArgs = [];
+		}
+
 		return DBUS.core.CallMethod(this.connection.busName,
 				            this.serviceName,
 				            this.objectPath,
@@ -86,10 +101,6 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, interface
 
 	// Create proxy functions for dbus methods
 	objectInterface.methods.forEach(function (method) {
-		var methodArgNames = method.args.map(function(arg) {
-			return arg.name;
-		});
-
 		var proxyFunction = function () {
 			var methodName = arguments.callee.methodName;
 			var argArray = Array.prototype.slice.call(arguments);
@@ -101,3 +112,4 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, interface
 
 	return proxy;
 };
+

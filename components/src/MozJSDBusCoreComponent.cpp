@@ -147,6 +147,12 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 			dbus_message_iter_get_basic(&iter, &value);
 
 			variant->SetAsString(value);
+		} else if (current_type == DBUS_TYPE_UINT32) {
+			dbus_uint32_t value;
+			dbus_message_iter_get_basic(&iter, &value);
+
+			printf ("uint is %u \n", value);
+			variant->SetAsUint32(value);
 		}
 
 		break;
