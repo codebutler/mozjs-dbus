@@ -26,34 +26,71 @@
 <window id="main" title="My App" width="300" height="300"
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
+	<script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/nm.js"></script>
+	<script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/libnotify.js"></script>
 	<script type="text/javascript">
-		try {
-			Components.utils.import("resource://app/components/DBUS.jsm");
-
-			Components.utils.import("resource://app/components/IPAddress");
-
-			var bus = DBUS.getSystemBus();
-
-			// NetworkManager does not support introspection, so we specify
-			// what this interface supports.
-			var nmInterface = {
-				   name: "org.freedesktop.NetworkManager.Interface",
-				methods: [ 'getName', 'getIP4Address' ]
-			};
-
-			// Get the proxy object
-			var ath0 = bus.getObject("org.freedesktop.NetworkManager",
-			                         "/org/freedesktop/NetworkManager/Devices/ath0",
-						 nmInterface);
-			
-			var name = ath0.getName();
-			var ip = new IPAddress(ath0.getIP4Address());
-			alert("Name: " + name + ", Address: "+ ip.toString());
-
-		} catch (ex) {
-			alert('PANIC: ' + ex);
-		}
+		var onLoad = function () {
+			setupNM();
+			setupLibNotify();
+		};
+		window.addEventListener('load', onLoad, true);
 	</script>
 
-	<caption label="Hello World"/>
+	<tabbox flex="1">
+		<tabs>
+			<tab label="Network Manager" />
+			<tab label="libNotify" />
+		</tabs>
+		<tabpanels flex="1">
+			<tabpanel id="networkManagerTab">
+				<grid flex="1">
+					<columns>
+						<column flex="1" />
+						<column flex="2" />
+					</columns>
+					<rows>
+						<row>
+							<label value="Device:" />
+							<menulist id="nmDeviceList">
+								<menupopup>
+								</menupopup>
+							</menulist>
+						</row>
+						<row>
+							<separator />
+						</row>
+						<row>
+							<label value="Name:" />
+							<label id="nmDeviceName" />
+						</row>
+						<row>
+							<label value="IP Address:" />
+							<label id="nmIPAddress" />
+						</row>
+						<row>
+							<label value="ESSID:" />
+							<label id="nmESSID" />
+						</row>
+					</rows>
+				</grid>
+			</tabpanel>
+			<tabpanel id="libNotifyTab">
+				<grid flex="1">
+					<columns>
+						<column flex="1" />
+						<column flex="2" />
+					</columns>
+					<rows>
+						<row>
+							<label value="Text:" />
+							<textbox id="notifyText" />
+						</row>
+						<row>
+							<button label="Send" id="sendNotificationButton" />
+						</row>
+					</rows>
+				</grid>
+			</tabpanel>
+		</tabpanels>
+	</tabbox>
 </window>

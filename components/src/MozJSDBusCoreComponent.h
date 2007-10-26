@@ -24,6 +24,9 @@
 #ifndef _MY_COMPONENT_H_
 #define _MY_COMPONENT_H_
 
+#include "nsCOMPtr.h"
+#include "nsIVariant.h"
+
 #include "IMozJSDBusCoreComponent.h"
 
 #include <dbus/dbus.h>

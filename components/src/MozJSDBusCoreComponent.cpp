@@ -23,12 +23,13 @@
 
 #include <stdio.h>
 #include "MozJSDBusCoreComponent.h"
+#include "MozJSDBusMarshalling.h"
 
-#include "../../../toolkit/system/dbus/nsDBusService.h"
+//#include "../../../toolkit/system/dbus/nsDBusService.h"
 
 // Kitchen sink on the way
 #include "nsIArray.h"
-#include "nsTArray.h"
+#include "nsArrayUtils.h"
 #include "nsStringAPI.h"
 #include "nsEmbedString.h"
 #include "nsIPropertyBag.h"
@@ -46,6 +47,7 @@ NS_IMPL_ISUPPORTS1(MozJSDBusCoreComponent, IMozJSDBusCoreComponent)
 MozJSDBusCoreComponent::MozJSDBusCoreComponent()
 {
 	// Constructor?
+
 }
 
 MozJSDBusCoreComponent::~MozJSDBusCoreComponent()
@@ -131,35 +133,96 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 		}
 	}
 	
-	nsCOMPtr<nsIWritableVariant> variant =
-		do_CreateInstance("@mozilla.org/variant;1", &rv);
-	if (NS_FAILED(rv)) {
-		PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
-		return NS_ERROR_FAILURE;
-	}
+	nsCOMPtr<nsIWritableVariant> variant;
 
 	dbus_message_iter_init(reply, &iter);
 	int current_type;
-	while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID) {
-		printf ("type in response %d \n ", current_type);
-		if (current_type == DBUS_TYPE_STRING) {
-			char* value;
-			dbus_message_iter_get_basic(&iter, &value);
+	while ((current_type = dbus_message_iter_get_arg_type (&iter))
+		!= DBUS_TYPE_INVALID) {
 
-			variant->SetAsString(value);
-		} else if (current_type == DBUS_TYPE_UINT32) {
-			dbus_uint32_t value;
-			dbus_message_iter_get_basic(&iter, &value);
+		printf ("type in response %c (%d) \n", current_type, current_type);
 
-			printf ("uint is %u \n", value);
-			variant->SetAsUint32(value);
+		if (dbus_type_is_basic(current_type)) {
+			variant = MozJSDBusMarshalling::unMarshallBasic(current_type, &iter);
+			break;
+
+		} else if (dbus_type_is_container(current_type)) {
+			switch (current_type) {
+				case DBUS_TYPE_ARRAY:
+				{
+					DBusMessageIter subiter;
+					dbus_message_iter_recurse(&iter, &subiter);
+					int current_subtype;
+
+					nsCOMPtr<nsIMutableArray> arrayItems =
+						do_CreateInstance("@mozilla.org/array;1");
+
+					while ((current_subtype = dbus_message_iter_get_arg_type(&subiter))
+						!= DBUS_TYPE_INVALID) {
+
+						if (dbus_type_is_basic(current_subtype)) {
+							nsCOMPtr<nsIWritableVariant> v = MozJSDBusMarshalling::unMarshallBasic(current_subtype, &subiter);
+							arrayItems->AppendElement(v, PR_FALSE);
+						} else {
+							// Not supported!
+							break;
+						}
+
+						dbus_message_iter_next(&subiter);
+					}
+
+					variant = do_CreateInstance("@mozilla.org/variant;1", &rv);
+					if (NS_FAILED(rv)) {
+						//PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
+						return NS_ERROR_FAILURE;
+					}
+
+					PRUint32 length;
+					arrayItems->GetLength(&length);
+
+					// Return a pointer array, XPCOM will
+					// convert it into a native JS array.
+					nsIVariant** array = new nsIVariant*[length];
+					if (!array) {
+						return NS_ERROR_OUT_OF_MEMORY;
+					}
+
+					for (PRUint32 x = 0; x < length; x++) {
+						nsCOMPtr<nsIVariant> item = do_QueryElementAt(arrayItems, x);
+						array[x] = item;
+						NS_ADDREF(item);
+					}
+
+					rv = variant->SetAsArray(nsIDataType::VTYPE_INTERFACE_IS,
+						&NS_GET_IID(nsIVariant), length, array);
+
+					if (NS_FAILED(rv)) {
+						printf("foo\n");
+						return NS_ERROR_FAILURE;
+					}
+
+					break;
+				}
+				case DBUS_TYPE_DICT_ENTRY:
+				{
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+			break;
 		}
 
-		break;
-   		//dbus_message_iter_next (&iter);
+		//dbus_message_iter_next(&iter);
 	}
-
-	NS_ADDREF(*_retval = variant);
-	return NS_OK;
+	if (variant) {
+		NS_ADDREF(*_retval = variant);
+		return NS_OK;
+	} else {
+		return NS_ERROR_FAILURE;
+	}
 }
+
 

@@ -64,6 +64,8 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
 		// DOCTYPE isnt supported by E4X
 		xml = xml.replace(/<!DOCTYPE[^>]+>/, '');
 
+		dump(xml);
+
 		xml = new XML(xml);
 
 		// Parse the xml
@@ -90,13 +92,15 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
 			methodArgs = [];
 		}
 
-		return DBUS.core.CallMethod(this.connection.busName,
-				            this.serviceName,
-				            this.objectPath,
-				            this.interfaceName,
-				            methodName,
-		                            methodArgs.length,
-				            methodArgs);
+		var result = DBUS.core.CallMethod(this.connection.busName,
+				                  this.serviceName,
+				                  this.objectPath,
+				                  this.interfaceName,
+				                  methodName,
+		                                  methodArgs.length,
+				                  methodArgs);
+
+		return result;
 	};
 
 	// Create proxy functions for dbus methods
