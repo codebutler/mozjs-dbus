@@ -21,8 +21,8 @@
  *
  */
 
-Components.utils.import("resource://app/components/DBUS.jsm");
-Components.utils.import("resource://app/components/IPAddress.jsm");
+Components.utils.import("resource://app/modules/DBUS.jsm");
+Components.utils.import("resource://app/modules/IPAddress.jsm");
 
 // NetworkManager does not support introspection, so we specify
 // what this interface supports.

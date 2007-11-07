@@ -21,7 +21,7 @@
  *
  */
 
-Components.utils.import("resource://app/components/DBUS.jsm");
+Components.utils.import("resource://app/modules/DBUS.jsm");
 
 const NOTIFY_SERVICE     = "org.freedesktop.Notifications";
 const NOTIFY_INTERFACE   = "org.freedesktop.Notifications";

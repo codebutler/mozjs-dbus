@@ -23,9 +23,9 @@
 
 EXPORTED_SYMBOLS = ["DBUS", "DBusObject"];
 
-Components.utils.import("resource://app/components/DBusXMLParser.jsm");
-Components.utils.import("resource://app/components/ArrayConverter.jsm");
-Components.utils.import("resource://app/components/ProxyUtils.jsm");
+Components.utils.import("resource://app/modules/DBusXMLParser.jsm");
+Components.utils.import("resource://app/modules/ArrayConverter.jsm");
+Components.utils.import("resource://app/modules/ProxyUtils.jsm");
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
