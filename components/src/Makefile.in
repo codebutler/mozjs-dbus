@@ -3,6 +3,8 @@ topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
 
+DEFINES		+= -DDEBUG
+
 include $(DEPTH)/config/autoconf.mk
 
 IS_COMPONENT	= 1
@@ -13,6 +15,8 @@ XPI_NAME	= mozjs_dbus
 
 REQUIRES 	= mozjs_dbus \
 	   	   xpcom     \
+		   js \
+		   xpconnect \
 	   	   $(NULL)
 
 CPPSRCS		= MozJSDBusCoreComponent.cpp \
@@ -25,6 +29,11 @@ EXTRA_DSO_LDOPTS =            \
 	$(XPCOM_GLUE_LDOPTS)  \
 	$(NSPR_LIBS)          \
 	$(MOZ_DBUS_GLIB_LIBS) \
+	$(NULL)
+
+LIBS            = \
+	$(XPCOM_STANDALONE_GLUE_LDOPTS) \
+	$(DBUS_LIBS) \
 	$(NULL)
 
 CXXFLAGS += $(MOZ_DBUS_GLIB_CFLAGS)

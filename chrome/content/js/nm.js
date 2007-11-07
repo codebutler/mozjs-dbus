@@ -34,6 +34,15 @@ const NM_INTERFACE = {
 		   'status' ]
 };
 
+/*
+const NM_IFACE_INTERFACE = {
+	   name: "org.freedesktop.NetworkManager.Devices",
+	methods: {          'getName': [ DBUS.STRING_TYPE, DBUS.INTEGER_TYPE ],
+	              'getIP4Address': [ DBUS.BOOL_TYPE ],
+		   'getActiveNetwork': [] }
+};
+*/
+
 const NM_IFACE_INTERFACE = {
 	   name: "org.freedesktop.NetworkManager.Devices",
 	methods: [ 'getName', 'getIP4Address', 'getActiveNetwork' ]

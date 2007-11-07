@@ -32,6 +32,18 @@ function setupLibNotify ()
 	var sendNotificationButton = document.getElementById('sendNotificationButton');
 
 	sendNotificationButton.addEventListener('command', sendNotification, true);
+
+	var bus = DBUS.getSessionBus();
+	var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
+				NOTIFY_INTERFACE);
+
+	nf.connectToSignal('NotificationClosed', function (id, reason) {
+		alert('Notification Closed!');
+	});
+
+	nf.connectToSignal('ActionInvoked', function (id, action_key) {
+		alert('Action Invoked!');
+	});
 }
 
 function sendNotification ()
@@ -43,8 +55,10 @@ function sendNotification ()
  
  		var id = 0;
 
-		//id = nf.Notify("test", id, icon, summary, body, actions, hints, timeout);
-		id = nf.Notify("test", id, null, "summary", "body", null, null, null);
+		var summary = document.getElementById("summaryText").value;
+		var body = document.getElementById("bodyText").value;
+		
+		id = nf.Notify("test", DBUS.UInt32(id), "", summary, body, [""], {}, 0);
 
 	} catch (e) {
 		alert(e);

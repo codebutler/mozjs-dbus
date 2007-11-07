@@ -21,15 +21,22 @@
  *
  */
 
+#include <stdlib.h>
+#include <iostream>
+#include <string>
 #include <stdio.h>
+using namespace std;
+
 #include "MozJSDBusCoreComponent.h"
 #include "MozJSDBusMarshalling.h"
+
+#include <dbus/dbus.h>
+#include <dbus/dbus-glib.h>
+#include <dbus/dbus-glib-lowlevel.h>
 
 //#include "../../../toolkit/system/dbus/nsDBusService.h"
 
 // Kitchen sink on the way
-#include "nsIArray.h"
-#include "nsArrayUtils.h"
 #include "nsStringAPI.h"
 #include "nsEmbedString.h"
 #include "nsIPropertyBag.h"
@@ -40,14 +47,54 @@
 #include "nsISupportsImpl.h"
 #include "nsISupportsPrimitives.h"
 #include "nsIVariant.h"
-#include "nsIMutableArray.h"
 
 NS_IMPL_ISUPPORTS1(MozJSDBusCoreComponent, IMozJSDBusCoreComponent)
 
+static DBusHandlerResult
+filter_func(DBusConnection* connection,
+            DBusMessage* message,
+	    void* user_data)
+{
+	if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL) {
+		const char *interface = dbus_message_get_interface(message);
+		const char *name = dbus_message_get_member(message);
+
+		string key = interface;
+		key += "/";
+		key += name;
+
+		MozJSDBusCoreComponent *core =
+		    (MozJSDBusCoreComponent*)user_data;
+
+		if (core->signalCallbacks.find(key) != core->signalCallbacks.end()) {
+
+			SignalCallbackInfo *info = core->signalCallbacks[key];
+
+			// XXX: May need to create proxy to ensure this is run on UI thread!
+			nsCOMPtr<ISignalCallback> js_callback = info->callback;
+			
+			// XXX: Actually, this doesn't return anything
+			PRBool ret = TRUE;
+			js_callback->Method(42, &ret);
+		}
+	}
+}
+
 MozJSDBusCoreComponent::MozJSDBusCoreComponent()
 {
-	// Constructor?
+	DBusError error;
+	dbus_error_init(&error);
 
+	systemConnection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
+    	sessionConnection = dbus_bus_get(DBUS_BUS_SESSION, &error);
+    
+	// XXX: Check for errors!
+
+	dbus_connection_setup_with_g_main(systemConnection, NULL);
+	dbus_connection_setup_with_g_main(sessionConnection, NULL);
+
+	dbus_connection_add_filter(systemConnection, filter_func, this, NULL);
+	dbus_connection_add_filter(sessionConnection, filter_func, this, NULL);
 }
 
 MozJSDBusCoreComponent::~MozJSDBusCoreComponent()
@@ -66,20 +113,9 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 {
 	nsresult rv;
 
-	DBusError error;
-	dbus_error_init(&error);
-
-	DBusConnection *connection;
-
-	// XXX: Use a switch and an enum here instead of this nonsense!
-	if (busName == "system") {
-		connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
-	} else if (busName == "session") {
-		connection = dbus_bus_get(DBUS_BUS_SESSION, &error);
-	} else {
-		printf("bad bus name");
-		return NS_ERROR_FAILURE;
-	}
+	const char* cBusName;
+	NS_CStringGetData(busName, &cBusName);
+	DBusConnection *connection = GetConnection((char*)cBusName);
 
 	// XXX: Do error checking here
 
@@ -113,15 +149,35 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 		PRUint16 dataType;
 		rv = arg->GetDataType(&dataType);
 		NS_ENSURE_SUCCESS(rv, rv);
-
 		printf ("Data type is %d \n", dataType);
+
+		// This unwraps a basic type from a variant created by
+		// DBUS.UInt32(), etc.
+		if (dataType == nsIDataType::VTYPE_INTERFACE_IS) {
+			nsISupports *blah;
+			arg->GetAsISupports(&blah);
+
+			nsIVariant *subVariant;
+			rv = blah->QueryInterface(NS_GET_IID(nsIVariant), (void**)&subVariant);
+
+			if (!NS_FAILED(rv)) {
+				/*
+				PRUint16 subDataType;
+				rv = subVariant->GetDataType(&subDataType);
+				NS_ENSURE_SUCCESS(rv, rv);
+				printf("Sub data type is %d\n", subDataType);
+				*/
+				arg = subVariant;
+			}
+		}
 	
-		// Append each arg!
-	 	// dbus_message_iter_append_basic(&iter, arg->GetAsF0obar);
+		rv = MozJSDBusMarshalling::marshallVariant(message, arg, &iter);
+		NS_ENSURE_SUCCESS(rv,rv);
 	}
 
 	DBusMessage *reply; 
 
+	DBusError error;
 	dbus_error_init(&error);
 	reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
 
@@ -133,90 +189,13 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 		}
 	}
 	
-	nsCOMPtr<nsIWritableVariant> variant;
+	nsCOMPtr<nsIVariant> variant;
 
 	dbus_message_iter_init(reply, &iter);
-	int current_type;
-	while ((current_type = dbus_message_iter_get_arg_type (&iter))
-		!= DBUS_TYPE_INVALID) {
 
-		printf ("type in response %c (%d) \n", current_type, current_type);
+	PRUint32 length;
+	variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
 
-		if (dbus_type_is_basic(current_type)) {
-			variant = MozJSDBusMarshalling::unMarshallBasic(current_type, &iter);
-			break;
-
-		} else if (dbus_type_is_container(current_type)) {
-			switch (current_type) {
-				case DBUS_TYPE_ARRAY:
-				{
-					DBusMessageIter subiter;
-					dbus_message_iter_recurse(&iter, &subiter);
-					int current_subtype;
-
-					nsCOMPtr<nsIMutableArray> arrayItems =
-						do_CreateInstance("@mozilla.org/array;1");
-
-					while ((current_subtype = dbus_message_iter_get_arg_type(&subiter))
-						!= DBUS_TYPE_INVALID) {
-
-						if (dbus_type_is_basic(current_subtype)) {
-							nsCOMPtr<nsIWritableVariant> v = MozJSDBusMarshalling::unMarshallBasic(current_subtype, &subiter);
-							arrayItems->AppendElement(v, PR_FALSE);
-						} else {
-							// Not supported!
-							break;
-						}
-
-						dbus_message_iter_next(&subiter);
-					}
-
-					variant = do_CreateInstance("@mozilla.org/variant;1", &rv);
-					if (NS_FAILED(rv)) {
-						//PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
-						return NS_ERROR_FAILURE;
-					}
-
-					PRUint32 length;
-					arrayItems->GetLength(&length);
-
-					// Return a pointer array, XPCOM will
-					// convert it into a native JS array.
-					nsIVariant** array = new nsIVariant*[length];
-					if (!array) {
-						return NS_ERROR_OUT_OF_MEMORY;
-					}
-
-					for (PRUint32 x = 0; x < length; x++) {
-						nsCOMPtr<nsIVariant> item = do_QueryElementAt(arrayItems, x);
-						array[x] = item;
-						NS_ADDREF(item);
-					}
-
-					rv = variant->SetAsArray(nsIDataType::VTYPE_INTERFACE_IS,
-						&NS_GET_IID(nsIVariant), length, array);
-
-					if (NS_FAILED(rv)) {
-						printf("foo\n");
-						return NS_ERROR_FAILURE;
-					}
-
-					break;
-				}
-				case DBUS_TYPE_DICT_ENTRY:
-				{
-					break;
-				}
-				default:
-				{
-					break;
-				}
-			}
-			break;
-		}
-
-		//dbus_message_iter_next(&iter);
-	}
 	if (variant) {
 		NS_ADDREF(*_retval = variant);
 		return NS_OK;
@@ -225,4 +204,161 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 	}
 }
 
+NS_IMETHODIMP MozJSDBusCoreComponent::ConnectToSignal(const nsACString &busName,
+                                      const nsACString &serviceName,
+				      const nsACString &objectPath,
+				      const nsACString &interface,
+				      const nsACString &signalName,
+				      ISignalCallback *callback)
+{
+	const char		*cServiceName;
+	const char		*cObjectPath;
+	const char		*cInterface;
+	const char		*cSignalName;
+	const char		*cBusName;
+	string			matchRule;
+	string			key;
+	DBusError		error;
+	DBusConnection		*connection;
+	SignalCallbackInfo	*info;
 
+	dbus_error_init(&error);
+
+	NS_CStringGetData(serviceName, &cServiceName);
+	NS_CStringGetData(objectPath, &cObjectPath);
+	NS_CStringGetData(interface, &cInterface);
+	NS_CStringGetData(signalName, &cSignalName);
+
+	info = (SignalCallbackInfo*) malloc(sizeof(SignalCallbackInfo));
+	info->serviceName = strdup(cServiceName);
+	info->objectPath  = strdup(cObjectPath);
+	info->interface   = strdup(cInterface);
+	info->signalName  = strdup(cSignalName);
+	info->callback    = callback;
+	NS_ADDREF(callback);
+	
+	NS_CStringGetData(busName, &cBusName);
+	connection = GetConnection((char*)cBusName);
+
+	matchRule = "type='signal',interface='";
+	matchRule += cInterface;
+	matchRule += "',member='";
+	matchRule += cSignalName;
+	matchRule += "'";
+	dbus_bus_add_match(connection, matchRule.c_str(), &error);
+
+	checkDBusError(error);
+
+	key = cInterface;
+	key += "/";
+	key += cSignalName;
+
+	signalCallbacks[key] = info;
+}
+
+NS_IMETHODIMP MozJSDBusCoreComponent::RequestService(const nsACString &busName,
+                                      const nsACString &serviceName,
+				      PRBool *_retval)
+{
+    DBusConnection  *connection;
+    const char	    *cBusName;
+    const char	    *cServiceName;
+    DBusError	    dbus_error;
+
+    dbus_error_init(&dbus_error);
+
+    NS_CStringGetData(serviceName, &cServiceName);
+
+    NS_CStringGetData(busName, &cBusName);
+    connection = GetConnection((char*)cBusName);
+
+    dbus_bus_request_name(connection, cServiceName, 0, &dbus_error);
+    checkDBusError(dbus_error);
+
+    *_retval = PR_TRUE;
+
+    return NS_OK;
+}
+
+static DBusHandlerResult message_handler(DBusConnection  *connection,
+                                         DBusMessage     *message,
+					 void            *user_data)
+{
+    const char			*interface;
+    const char			*member	    = dbus_message_get_member(message);
+    DBusMessageIter		iter;
+    nsIVariant			*result;
+    nsCOMPtr<IMethodHandler>	js_callback;
+    nsresult			rv;
+    nsIVariant** args;
+
+    interface = dbus_message_get_interface(message);
+
+    js_callback = (IMethodHandler*)user_data;
+
+    dbus_message_iter_init(message, &iter);
+    
+    PRUint32 length;
+    args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
+
+    js_callback->Method(interface, member, args, length, &result);
+
+    DBusMessage *reply = dbus_message_new_method_return(message);
+
+    if (result != NULL) {
+	dbus_message_iter_init_append(reply, &iter);
+	MozJSDBusMarshalling::marshallVariant(reply, result, &iter);
+    }
+
+    dbus_connection_send(connection, reply, NULL);
+    dbus_message_unref(reply);
+    return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+NS_IMETHODIMP MozJSDBusCoreComponent::RegisterObject(const nsACString &busName,
+                                      const nsACString &objectPath,
+				      IMethodHandler *callback)
+{
+    DBusConnection  *connection;
+    const char	    *cBusName;
+    const char	    *cObjectPath;
+
+    NS_CStringGetData(busName, &cBusName);
+    connection = GetConnection((char*)cBusName);
+
+    NS_CStringGetData(objectPath, &cObjectPath);
+
+    printf("Register obj %s\n", cObjectPath);
+
+    DBusObjectPathVTable vtable = { NULL, &message_handler };
+    dbus_connection_register_object_path(connection, cObjectPath, &vtable, callback);
+    
+    NS_ADDREF(callback);
+}
+
+DBusConnection* MozJSDBusCoreComponent::GetConnection(char* busName)
+{
+	DBusConnection *connection;
+
+	// XXX: Don't use strings here
+	if (strcmp(busName, "system") == 0) {
+		connection = systemConnection;
+	} else if (strcmp(busName, "session") == 0) {
+		connection = sessionConnection;
+	} else {
+		printf("bad bus name: '%s'\n", busName);
+		return NULL;
+	}
+
+	return connection;
+}
+
+static void checkDBusError(DBusError error)
+{
+    if (dbus_error_is_set(&error)) {
+	printf("** DBUS ERROR!!!\n Name: %s \n Message: %s \n",
+	    error.name, error.message);
+
+	// XXX: Throw an XPCOM exception here or something.
+    }
+}

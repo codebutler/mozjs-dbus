@@ -31,11 +31,26 @@
 
 #include <dbus/dbus.h>
 
+#include <map>
+#include <string>
+
+using namespace std;
+
 #define MY_COMPONENT_CONTRACTID "@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"
 #define MY_COMPONENT_CLASSNAME "A Simple XPCOM Sample"
 #define MY_COMPONENT_CID  { 0x597a60b0, 0x5272, 0x4284, { 0x90, 0xf6, 0xe9, 0x6c, 0x24, 0x2d, 0x74, 0x6 } }
 
-/* Header file */
+static void checkDBusError(DBusError error);
+
+typedef struct
+{
+	const char *serviceName;
+	const char *objectPath;
+	const char *interface;
+	const char *signalName;
+	ISignalCallback *callback;
+} SignalCallbackInfo;
+
 class MozJSDBusCoreComponent : public IMozJSDBusCoreComponent
 {
 public:
@@ -44,11 +59,15 @@ public:
 
 	MozJSDBusCoreComponent();
 	virtual ~MozJSDBusCoreComponent();
+
+	// XXX: This should be a hashtable!
+	std::map<string, SignalCallbackInfo*> signalCallbacks;
 	
 private:
 	DBusConnection *systemConnection;
 	DBusConnection *sessionConnection;
-};
 
+	DBusConnection* GetConnection(char* busName);
+};
 
 #endif //_MY_COMPONENT_H_

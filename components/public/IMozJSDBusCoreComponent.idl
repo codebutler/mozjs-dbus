@@ -24,6 +24,23 @@
 #include "nsISupports.idl"
 #include "nsIPropertyBag.idl"
 
+// From http://blog.xiaoduo.info/?p=38
+[scriptable, uuid(c7c71679-bf75-4722-ad82-8e779fc54f7f)]
+interface ISignalCallback : nsISupports
+{
+  boolean method(in PRUint32 aData);
+};
+
+[function, scriptable, uuid(efc733cd-6288-45af-a12c-51cc064fadeb)]
+interface IMethodHandler : nsISupports
+{
+  nsIVariant method(in string interfaceName,
+                    in string methodName,
+		    [array, size_is(argsLength)]
+		    in nsIVariant args,
+		    in unsigned long argsLength);
+};
+
 [scriptable, uuid(90758a97-a6f3-4ea4-8953-16bd2ee3a977)]
 interface IMozJSDBusCoreComponent : nsISupports
 {
@@ -35,5 +52,19 @@ interface IMozJSDBusCoreComponent : nsISupports
 			in unsigned long argsLength,
 			[array, size_is(argsLength)]
 			in nsIVariant args);
+
+  void ConnectToSignal(in ACString busName,
+                       in ACString serviceName,
+                       in ACString objectPath,
+                       in ACString interfaceName,
+                       in ACString signalName,
+                       in ISignalCallback callback);
+    
+  boolean RequestService(in ACString busName,
+                         in ACString serviceName);
+  
+  void RegisterObject(in ACString busName,
+                      in ACString objectPath,
+		      in IMethodHandler callback);
 };
 

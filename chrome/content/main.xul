@@ -32,6 +32,26 @@
 		var onLoad = function () {
 			setupNM();
 			setupLibNotify();
+
+			try {
+				var testObj = new DBusObject();
+				var iface = testObj.defineInterface("net.extremeboredom.TestInterface");
+				iface.defineMethod('sum', 'ii', 'i', function(first, second) {
+				    return first+second;
+				});
+				iface.defineMethod('hello', '', 's', function() {
+				    return "Hello World!";
+				});
+
+				var bus = DBUS.getSessionBus();
+				var service = bus.requestService('net.extremeboredom.TestService');
+				service.exportObject('/Test', testObj);
+
+				//alert(testObj.interfaces['org.freedesktop.DBus.Introspectable'].methods['Introspect']['method']());
+
+			} catch (e) {
+				alert(e);
+			};
 		};
 		window.addEventListener('load', onLoad, true);
 	</script>
@@ -82,8 +102,12 @@
 					</columns>
 					<rows>
 						<row>
-							<label value="Text:" />
-							<textbox id="notifyText" />
+							<label value="Summary:" />
+							<textbox id="summaryText" />
+						</row>
+						<row>
+							<label value="Body:" />
+							<textbox id="bodyText" />
 						</row>
 						<row>
 							<button label="Send" id="sendNotificationButton" />
