@@ -86,9 +86,10 @@ MozJSDBusCoreComponent::MozJSDBusCoreComponent()
 	dbus_error_init(&error);
 
 	systemConnection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
+	checkDBusError(error);
+
     	sessionConnection = dbus_bus_get(DBUS_BUS_SESSION, &error);
-    
-	// XXX: Check for errors!
+	checkDBusError(error);
 
 	dbus_connection_setup_with_g_main(systemConnection, NULL);
 	dbus_connection_setup_with_g_main(sessionConnection, NULL);
@@ -111,29 +112,28 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 				      nsIVariant **args,
 				      nsIVariant **_retval)
 {
-	nsresult rv;
+	nsresult 		rv;
+	const char* 		cBusName;
+	DBusConnection 		*connection;
+	DBusMessage 		*message;
+	DBusMessageIter		iter;
+	const char* 		cServiceName;
+	const char* 		cObjectPath;
+	const char* 		cInterface;
+	const char* 		cMethodName;
+	DBusMessage 		*reply; 
+	DBusError 		error;
+	nsCOMPtr<nsIVariant> 	variant;
+	PRUint32 		length;
 
-	const char* cBusName;
+	dbus_error_init(&error);
+
 	NS_CStringGetData(busName, &cBusName);
-	DBusConnection *connection = GetConnection((char*)cBusName);
+	connection = GetConnection((char*)cBusName);
 
-	// XXX: Do error checking here
-
-	DBusMessage *message;
-	DBusMessageIter iter;
-
-	// XXX: Is there a macro that could clean all this up?
-
-	const char* cServiceName;
 	NS_CStringGetData(serviceName, &cServiceName);
-
-	const char* cObjectPath;
 	NS_CStringGetData(objectPath, &cObjectPath);
-
-	const char* cInterface;
 	NS_CStringGetData(interface, &cInterface);
-
-	const char* cMethodName;
 	NS_CStringGetData(methodName, &cMethodName);
 
 	message = dbus_message_new_method_call(cServiceName,
@@ -161,12 +161,6 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 			rv = blah->QueryInterface(NS_GET_IID(nsIVariant), (void**)&subVariant);
 
 			if (!NS_FAILED(rv)) {
-				/*
-				PRUint16 subDataType;
-				rv = subVariant->GetDataType(&subDataType);
-				NS_ENSURE_SUCCESS(rv, rv);
-				printf("Sub data type is %d\n", subDataType);
-				*/
 				arg = subVariant;
 			}
 		}
@@ -175,25 +169,11 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
 		NS_ENSURE_SUCCESS(rv,rv);
 	}
 
-	DBusMessage *reply; 
-
-	DBusError error;
-	dbus_error_init(&error);
 	reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
-
-	if (reply == NULL) {
-		if (dbus_error_is_set(&error)) {
-			printf("Error sending DBUS message: %s\n", error.message);
-			dbus_error_free(&error);
-			return NS_ERROR_FAILURE;
-		}
-	}
-	
-	nsCOMPtr<nsIVariant> variant;
+	checkDBusError(error);
 
 	dbus_message_iter_init(reply, &iter);
 
-	PRUint32 length;
 	variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
 
 	if (variant) {
@@ -285,12 +265,16 @@ static DBusHandlerResult message_handler(DBusConnection  *connection,
 					 void            *user_data)
 {
     const char			*interface;
-    const char			*member	    = dbus_message_get_member(message);
+    const char			*member;
     DBusMessageIter		iter;
     nsIVariant			*result;
     nsCOMPtr<IMethodHandler>	js_callback;
     nsresult			rv;
-    nsIVariant** args;
+    nsIVariant** 		args;
+    PRUint32 			length;
+    DBusMessage 		*reply;
+
+    member = dbus_message_get_member(message);
 
     interface = dbus_message_get_interface(message);
 
@@ -298,12 +282,11 @@ static DBusHandlerResult message_handler(DBusConnection  *connection,
 
     dbus_message_iter_init(message, &iter);
     
-    PRUint32 length;
     args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
 
     js_callback->Method(interface, member, args, length, &result);
 
-    DBusMessage *reply = dbus_message_new_method_return(message);
+    reply = dbus_message_new_method_return(message);
 
     if (result != NULL) {
 	dbus_message_iter_init_append(reply, &iter);
@@ -319,9 +302,10 @@ NS_IMETHODIMP MozJSDBusCoreComponent::RegisterObject(const nsACString &busName,
                                       const nsACString &objectPath,
 				      IMethodHandler *callback)
 {
-    DBusConnection  *connection;
-    const char	    *cBusName;
-    const char	    *cObjectPath;
+    DBusConnection  		*connection;
+    const char	    		*cBusName;
+    const char	    		*cObjectPath;
+    DBusObjectPathVTable 	vtable 		= { NULL, &message_handler };
 
     NS_CStringGetData(busName, &cBusName);
     connection = GetConnection((char*)cBusName);
@@ -330,7 +314,6 @@ NS_IMETHODIMP MozJSDBusCoreComponent::RegisterObject(const nsACString &busName,
 
     printf("Register obj %s\n", cObjectPath);
 
-    DBusObjectPathVTable vtable = { NULL, &message_handler };
     dbus_connection_register_object_path(connection, cObjectPath, &vtable, callback);
     
     NS_ADDREF(callback);
