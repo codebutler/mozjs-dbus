@@ -1,4 +1,5 @@
-/*
+/* vim:sw=4 sts=4 et
+ *
  * MozJSDBusCoreComponent.h:
  *
  * Authors:
@@ -33,7 +34,6 @@
 
 #include <map>
 #include <string>
-
 using namespace std;
 
 #define MY_COMPONENT_CONTRACTID "@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"
@@ -44,30 +44,30 @@ static void checkDBusError(DBusError error);
 
 typedef struct
 {
-	const char *serviceName;
-	const char *objectPath;
-	const char *interface;
-	const char *signalName;
-	ISignalCallback *callback;
+    const char *serviceName;
+    const char *objectPath;
+    const char *interface;
+    const char *signalName;
+    IJSCallback *callback;
 } SignalCallbackInfo;
 
 class MozJSDBusCoreComponent : public IMozJSDBusCoreComponent
 {
 public:
-	NS_DECL_ISUPPORTS
-	NS_DECL_IMOZJSDBUSCORECOMPONENT
+    NS_DECL_ISUPPORTS
+    NS_DECL_IMOZJSDBUSCORECOMPONENT
 
-	MozJSDBusCoreComponent();
-	virtual ~MozJSDBusCoreComponent();
+    MozJSDBusCoreComponent();
+    virtual ~MozJSDBusCoreComponent();
 
-	// XXX: This should be a hashtable!
-	std::map<string, SignalCallbackInfo*> signalCallbacks;
-	
+    // XXX: This should be a hashtable!
+    std::map<string, SignalCallbackInfo*> signalCallbacks;
+    
 private:
-	DBusConnection *systemConnection;
-	DBusConnection *sessionConnection;
+    DBusConnection *systemConnection;
+    DBusConnection *sessionConnection;
 
-	DBusConnection* GetConnection(char* busName);
+    DBusConnection* GetConnection(char* busName);
 };
 
 #endif //_MY_COMPONENT_H_

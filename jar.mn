@@ -1,5 +1,6 @@
 mozjsdbus.jar:
 % content mozjs-dbus-example %chrome/content/
-  chrome/content/main.xul			(content/main.xul)
-  chrome/content/js/nm.js			(content/js/nm.js)
-  chrome/content/js/libnotify.js		(content/js/libnotify.js)
+  chrome/content/main.xul             (content/main.xul)
+  chrome/content/js/nm.js             (content/js/nm.js)
+  chrome/content/js/libnotify.js      (content/js/libnotify.js)
+  chrome/content/js/service.js        (content/js/service.js)

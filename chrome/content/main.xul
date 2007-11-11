@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
-
 <!--
+   vim:sw=4 sts=4 et ft=xhtml
+
    DBUS.jsm: 
   
    Authors:
@@ -26,95 +27,94 @@
 <window id="main" title="My App" width="300" height="300"
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
-	<script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/nm.js"></script>
-	<script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/libnotify.js"></script>
-	<script type="text/javascript">
-		var onLoad = function () {
-			setupNM();
-			setupLibNotify();
+    <script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/nm.js"></script>
+    <script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/libnotify.js"></script>
+    <script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/service.js"></script>
+    <script type="text/javascript">
 
-			try {
-				var testObj = new DBusObject();
-				var iface = testObj.defineInterface("net.extremeboredom.TestInterface");
-				iface.defineMethod('sum', 'ii', 'i', function(first, second) {
-				    return first+second;
-				});
-				iface.defineMethod('hello', '', 's', function() {
-				    return "Hello World!";
-				});
+        var onLoad = function () {
+            setupNM();
+            setupLibNotify();
+            setupService();
+        };
+        
+        window.addEventListener('load', onLoad, true);
 
-				var bus = DBUS.getSessionBus();
-				var service = bus.requestService('net.extremeboredom.TestService');
-				service.exportObject('/Test', testObj);
+    </script>
 
-				//alert(testObj.interfaces['org.freedesktop.DBus.Introspectable'].methods['Introspect']['method']());
-
-			} catch (e) {
-				alert(e);
-			};
-		};
-		window.addEventListener('load', onLoad, true);
-	</script>
-
-	<tabbox flex="1">
-		<tabs>
-			<tab label="Network Manager" />
-			<tab label="libNotify" />
-		</tabs>
-		<tabpanels flex="1">
-			<tabpanel id="networkManagerTab">
-				<grid flex="1">
-					<columns>
-						<column flex="1" />
-						<column flex="2" />
-					</columns>
-					<rows>
-						<row>
-							<label value="Device:" />
-							<menulist id="nmDeviceList">
-								<menupopup>
-								</menupopup>
-							</menulist>
-						</row>
-						<row>
-							<separator />
-						</row>
-						<row>
-							<label value="Name:" />
-							<label id="nmDeviceName" />
-						</row>
-						<row>
-							<label value="IP Address:" />
-							<label id="nmIPAddress" />
-						</row>
-						<row>
-							<label value="ESSID:" />
-							<label id="nmESSID" />
-						</row>
-					</rows>
-				</grid>
-			</tabpanel>
-			<tabpanel id="libNotifyTab">
-				<grid flex="1">
-					<columns>
-						<column flex="1" />
-						<column flex="2" />
-					</columns>
-					<rows>
-						<row>
-							<label value="Summary:" />
-							<textbox id="summaryText" />
-						</row>
-						<row>
-							<label value="Body:" />
-							<textbox id="bodyText" />
-						</row>
-						<row>
-							<button label="Send" id="sendNotificationButton" />
-						</row>
-					</rows>
-				</grid>
-			</tabpanel>
-		</tabpanels>
-	</tabbox>
+    <tabbox flex="1">
+        <tabs>
+            <tab label="Network Manager" />
+            <tab label="libNotify" />
+            <tab label="Service" />
+        </tabs>
+        <tabpanels flex="1">
+            <tabpanel id="networkManagerTab">
+                <grid flex="1">
+                    <columns>
+                        <column flex="1" />
+                        <column flex="2" />
+                    </columns>
+                    <rows>
+                        <row>
+                            <label value="Device:" />
+                            <menulist id="nmDeviceList">
+                                <menupopup>
+                                </menupopup>
+                            </menulist>
+                        </row>
+                        <row>
+                            <separator />
+                        </row>
+                        <row>
+                            <label value="Name:" />
+                            <label id="nmDeviceName" />
+                        </row>
+                        <row>
+                            <label value="IP Address:" />
+                            <label id="nmIPAddress" />
+                        </row>
+                        <row>
+                            <label value="ESSID:" />
+                            <label id="nmESSID" />
+                        </row>
+                    </rows>
+                </grid>
+            </tabpanel>
+            <tabpanel id="libNotifyTab">
+                <grid flex="1">
+                    <columns>
+                        <column flex="1" />
+                        <column flex="2" />
+                    </columns>
+                    <rows>
+                        <row>
+                            <label value="Summary:" />
+                            <textbox id="summaryText" />
+                        </row>
+                        <row>
+                            <label value="Body:" />
+                            <textbox id="bodyText" />
+                        </row>
+                        <row>
+                            <button label="Send" id="sendNotificationButton" />
+                        </row>
+                    </rows>
+                </grid>
+            </tabpanel>
+            <tabpanel>
+                <grid flex="1">
+                    <columns>
+                        <column flex="1" />
+                        <column flex="2" />
+                    </columns>
+                    <rows>
+                        <row>
+                            <button id="emitSignalButton" label="Emit Signal" />
+                        </row>
+                    </rows>
+                </grid>
+            </tabpanel>
+        </tabpanels>
+    </tabbox>
 </window>

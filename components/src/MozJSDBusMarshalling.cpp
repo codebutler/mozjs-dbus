@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
-
-/*
+/* vim:sw=4 sts=4 et
+ *
  * MozJSDBusMarshalling.cpp: Convert XPCOM data to/from DBUS data.
  *
  * Authors:
@@ -47,6 +46,8 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
+#include "nsIClassInfo.h"
+#include "nsIXPConnect.h"
 #include "nsIArray.h"
 #include "nsIMutableArray.h"
 #include "nsArrayUtils.h"
@@ -54,6 +55,43 @@
 #include "MozJSDBusMarshalling.h"
 #include "MozJSDBusCoreComponent.h"
 #include "nsComponentManagerUtils.h"
+
+nsresult
+MozJSDBusMarshalling::appendArgs(DBusMessage      *message,
+                                 DBusMessageIter  *iter,
+                                 PRUint32         argsLength,
+                                 nsIVariant**     args)
+{
+    nsresult rv;
+
+    for (PRUint32 x = 0; x < argsLength; x++) {
+        nsIVariant *arg = args[x];
+        
+        PRUint16 dataType;
+        rv = arg->GetDataType(&dataType);
+        NS_ENSURE_SUCCESS(rv, rv);
+        printf ("Data type is %d \n", dataType);
+
+        // This unwraps a basic type from a variant created by
+        // DBUS.UInt32(), etc.
+        if (dataType == nsIDataType::VTYPE_INTERFACE_IS) {
+            nsISupports *blah;
+            arg->GetAsISupports(&blah);
+
+            nsIVariant *subVariant;
+            rv = blah->QueryInterface(NS_GET_IID(nsIVariant), (void**)&subVariant);
+
+            if (!NS_FAILED(rv)) {
+                arg = subVariant;
+            }
+        }
+    
+        rv = MozJSDBusMarshalling::marshallVariant(message, arg, iter);
+        NS_ENSURE_SUCCESS(rv,rv);
+    }
+
+    return NS_OK;
+}
 
 nsIVariant**
 MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter, PRUint32 *retLength)
@@ -312,11 +350,13 @@ MozJSDBusMarshalling::getDBusTypeAsSignature(int type)
     }
 
 nsresult
-MozJSDBusMarshalling::marshallVariant(DBusMessage *msg, 
-        nsIVariant *param, DBusMessageIter *it)
+MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg, 
+                                      nsIVariant      *param, 
+                                      DBusMessageIter *it)
 {
     PRUint16 type;
     nsresult nv;
+    nsresult rv;
 
     param->GetDataType(&type);
     switch (type) {
@@ -409,8 +449,9 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage *msg,
             break;
         }
         case nsIDataType::VTYPE_INTERFACE_IS: { 
-            // TODO: Interface are object, need to query class info
-            // and build STRUCT
+            // Create a DICT_ENTRY array
+            // TODO: User may want a STRUCT instead?
+
             nsIID *iid;
             nsISupports *interface;
             nsresult ns;
@@ -419,9 +460,26 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage *msg,
             if(NS_FAILED(nv)) {
                 return NS_ERROR_FAILURE;
             }
+    
+            PRUint32 count;
+            nsIID **array;
 
-	    DBusMessageIter sub;
-	    dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY, "{sv}", &sub);
+            nsCOMPtr<nsIXPConnectWrappedJS> wrapped = do_QueryInterface(interface);
+
+            if (wrapped != NULL) {
+                printf ("Info was something !!\n");
+                
+                JSObject* jsObject;
+                rv = wrapped->GetJSObject(&jsObject);
+                NS_ENSURE_SUCCESS(rv, rv);
+                
+            } else {
+                printf ("Info was null !!\n");
+            }
+
+
+            DBusMessageIter sub;
+            dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY, "{sv}", &sub);
             dbus_message_iter_close_container(it, &sub);
             
             //printf("IID %s\n", iid.ToString()); 

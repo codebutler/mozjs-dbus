@@ -61,6 +61,12 @@ extern	PRLogModuleInfo *lm;
 class MozJSDBusMarshalling 
 {
 public:
+
+    static nsresult appendArgs(DBusMessage*     message,
+                               DBusMessageIter* iter,
+                               PRUint32         argsLength,
+                               nsIVariant**     args);
+
     static nsIVariant** getVariantArray(DBusMessageIter *iter, PRUint32 *length);
 
     static nsresult marshall(DBusMessage **);

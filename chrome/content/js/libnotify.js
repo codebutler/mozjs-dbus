@@ -1,4 +1,5 @@
-/*
+/* vim:sw=4 sts=4 et
+ *
  * libnotify.js: 
  *
  * Authors:
@@ -29,38 +30,42 @@ const NOTIFY_OBJECT_PATH = "/org/freedesktop/Notifications";
 
 function setupLibNotify ()
 {
-	var sendNotificationButton = document.getElementById('sendNotificationButton');
+    var sendNotificationButton = document.getElementById('sendNotificationButton');
 
-	sendNotificationButton.addEventListener('command', sendNotification, true);
+    sendNotificationButton.addEventListener('command', sendNotification, true);
 
-	var bus = DBUS.getSessionBus();
-	var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
-				NOTIFY_INTERFACE);
+    var bus = DBUS.getSessionBus();
+    var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
+                            NOTIFY_INTERFACE);
 
-	nf.connectToSignal('NotificationClosed', function (id, reason) {
-		alert('Notification Closed!');
-	});
+    nf.connectToSignal('NotificationClosed', function (id, reason) {
+        alert('Notification Closed! ' + id + ' .. ' + reason);
+    });
 
-	nf.connectToSignal('ActionInvoked', function (id, action_key) {
-		alert('Action Invoked!');
-	});
+    nf.connectToSignal('ActionInvoked', function (id, action_key) {
+        alert('Action Invoked! ' + id + ' .. ' + action_key);
+    });
 }
 
 function sendNotification ()
 {
-	try {
-		var bus = DBUS.getSessionBus();
-		var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
-		                        NOTIFY_INTERFACE);
- 
- 		var id = 0;
+    var bus = DBUS.getSessionBus();
+    var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
+                            NOTIFY_INTERFACE);
 
-		var summary = document.getElementById("summaryText").value;
-		var body = document.getElementById("bodyText").value;
-		
-		id = nf.Notify("test", DBUS.UInt32(id), "", summary, body, [""], {}, 0);
-
-	} catch (e) {
-		alert(e);
-	}
+    var summary = document.getElementById("summaryText").value;
+    var body    = document.getElementById("bodyText").value;
+    
+    var id = nf.Notify("test",                              // app_name
+                       DBUS.Uint32(id),                     // replaces_id
+                       "",                                  // app_icon
+                       summary,                             // summary
+                       body,                                // body
+                       [ "ok", "OK", "cancel", "Cancel" ],  // actions
+                       {                                    // hints
+                             urgency: 2,                    // ..
+                            category: "device.error"        // ..
+                       },                                   // ..
+                       30000);                              // expire_timeout
 }
+
