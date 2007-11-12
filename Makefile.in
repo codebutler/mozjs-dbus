@@ -31,7 +31,7 @@ include $(DEPTH)/config/autoconf.mk
 MODULE		= mozjs_dbus
 XPI_NAME	= mozjs_dbus
 
-DIRS		= components
+DIRS		= components modules
 
 PREF_JS_EXPORTS = $(srcdir)/defaults/preferences/prefs.js
 DIST_FILES	= application.ini

@@ -76,6 +76,8 @@ filter_func(DBusConnection* connection,
            
             nsIVariant *result;
             js_callback->Method(interface, name, args, length, &result);
+            
+            dbus_message_unref(message);
         }
     }
 }
@@ -88,7 +90,7 @@ MozJSDBusCoreComponent::MozJSDBusCoreComponent()
     systemConnection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
     checkDBusError(error);
 
-        sessionConnection = dbus_bus_get(DBUS_BUS_SESSION, &error);
+    sessionConnection = dbus_bus_get(DBUS_BUS_SESSION, &error);
     checkDBusError(error);
 
     dbus_connection_setup_with_g_main(systemConnection, NULL);
@@ -139,21 +141,26 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
                                            cObjectPath,
                                            cInterface,
                                            cMethodName);
-
     dbus_message_iter_init_append(message, &iter);
 
     MozJSDBusMarshalling::appendArgs(message, &iter, argsLength, args);
 
-    reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
-    checkDBusError(error);
+    reply = dbus_connection_send_with_reply_and_block(connection, message, -1, 
+                                                      &error);
+    dbus_message_unref(message);
+    
+    if (checkDBusError(error) == FALSE) {
 
-    dbus_message_iter_init(reply, &iter);
+        dbus_message_iter_init(reply, &iter);
 
-    variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
+        variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
 
-    if (variant) {
-        NS_ADDREF(*_retval = variant);
-        return NS_OK;
+        if (variant) {
+            NS_ADDREF(*_retval = variant);
+            return NS_OK;
+        } else {
+            return NS_ERROR_FAILURE;
+        }
     } else {
         return NS_ERROR_FAILURE;
     }
@@ -301,7 +308,9 @@ NS_IMETHODIMP MozJSDBusCoreComponent::EmitSignal(const nsACString &busName,
     }
 
     dbus_connection_send(connection, message, NULL);
-
+    
+    dbus_message_unref(message);
+    
     return NS_OK;
 }
 
@@ -319,7 +328,8 @@ NS_IMETHODIMP MozJSDBusCoreComponent::RegisterObject(const nsACString &busName,
 
     NS_CStringGetData(objectPath, &cObjectPath);
 
-    dbus_connection_register_object_path(connection, cObjectPath, &vtable, callback);
+    dbus_connection_register_object_path(connection, cObjectPath, &vtable, 
+                                         callback);
     
     NS_ADDREF(callback);
 }
@@ -341,12 +351,17 @@ DBusConnection* MozJSDBusCoreComponent::GetConnection(char* busName)
     return connection;
 }
 
-static void checkDBusError(DBusError error)
+static bool checkDBusError(DBusError error)
 {
     if (dbus_error_is_set(&error)) {
         printf("** DBUS ERROR!!!\n Name: %s \n Message: %s \n",
                error.name, error.message);
-
+        
+        dbus_error_free(&error);
+        
+        return true;
         // XXX: Throw an XPCOM exception here or something.
+    } else {
+        return false;
     }
 }

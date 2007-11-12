@@ -95,7 +95,7 @@ function DBusObject () {
                 return str.split(',');
             };
 
-            var appendArgs = function (element, argNames, signature, direction) {
+            function appendArgs (element, argNames, signature, direction) {
                 for (var x = 0; x < signature.length; x++) {
                     var type = signature[x];
                     var argXML;
@@ -112,7 +112,7 @@ function DBusObject () {
                     }
                     element.appendChild(argXML);
                 }
-            };
+            }
 
             for (var methodName in methods) {
                 var methodInfo = methods[methodName];
@@ -204,7 +204,10 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
                 // DOCTYPE isnt supported by E4X
                 xml = xml.replace(/<!DOCTYPE[^>]+>/, '');
 
-                dump(xml);
+                // Nor is <?xml...
+                xml = xml.replace(/<\?xml[^\?>]+\?>/, '');
+                
+                //dump(xml);
 
                 xml = new XML(xml);
 

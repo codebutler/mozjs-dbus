@@ -27,98 +27,104 @@ Components.utils.import("resource://app/modules/IPAddress.jsm");
 // NetworkManager does not support introspection, so we specify
 // what this interface supports.
 const NM_INTERFACE = {
-	   name: "org.freedesktop.NetworkManager",
-	methods: [ 'getDevices',
-		   'getActiveDevice',
-		   'setActiveDevice',
-		   'status' ]
+       name: "org.freedesktop.NetworkManager",
+    methods: [ 'getDevices',
+           'getActiveDevice',
+           'setActiveDevice',
+           'status' ]
 };
 
 /*
 const NM_IFACE_INTERFACE = {
-	   name: "org.freedesktop.NetworkManager.Devices",
-	methods: {          'getName': [ DBUS.STRING_TYPE, DBUS.INTEGER_TYPE ],
-	              'getIP4Address': [ DBUS.BOOL_TYPE ],
-		   'getActiveNetwork': [] }
+       name: "org.freedesktop.NetworkManager.Devices",
+    methods: {          'getName': [ DBUS.STRING_TYPE, DBUS.INTEGER_TYPE ],
+                  'getIP4Address': [ DBUS.BOOL_TYPE ],
+           'getActiveNetwork': [] }
 };
 */
 
 const NM_IFACE_INTERFACE = {
-	   name: "org.freedesktop.NetworkManager.Devices",
-	methods: [ 'getName', 'getIP4Address', 'getActiveNetwork' ]
+       name: "org.freedesktop.NetworkManager.Devices",
+    methods: [ 'getName', 'getIP4Address', 'getActiveNetwork' ]
 };
 
 const NM_NETWORK_INTERFACE = {
-	   name: "org.freedesktop.NetworkManager.Devices",
-	methods: [ 'getName' ]
+       name: "org.freedesktop.NetworkManager.Devices",
+    methods: [ 'getName' ]
 };
 
 function setupNM ()
 {
-	var nmDeviceList = document.getElementById('nmDeviceList');
+    try {
+        var nmDeviceList = document.getElementById('nmDeviceList');
 
-	var bus = DBUS.getSystemBus();
-	
-	var nm = bus.getObject("org.freedesktop.NetworkManager",
-			       "/org/freedesktop/NetworkManager",
-			       NM_INTERFACE);
+        var bus = DBUS.getSystemBus();
+        
+        var nm = bus.getObject("org.freedesktop.NetworkManager",
+                       "/org/freedesktop/NetworkManager",
+                       NM_INTERFACE);
 
-	var devices = nm.getDevices();
+        var devices = nm.getDevices();
 
-	for (var x = 0; x < devices.length; x++) {
-		// Interface name is last part of path, avoid dbus call by
-		// just extracting that.
-		/*
-		var name = devices[x].split('/')[-1];
-		alert(devices[x] + "   " + name);
-		*/
+        for (var x = 0; x < devices.length; x++) {
+            // Interface name is last part of path, avoid dbus call by
+            // just extracting that.
+            /*
+            var name = devices[x].split('/')[-1];
+            alert(devices[x] + "   " + name);
+            */
 
-		var device = bus.getObject("org.freedesktop.NetworkManager",
-					   devices[x], NM_IFACE_INTERFACE);
-		var name = device.getName();
-		nmDeviceList.appendItem(name, devices[x]);
-	}
+            var device = bus.getObject("org.freedesktop.NetworkManager",
+                           devices[x], NM_IFACE_INTERFACE);
+            var name = device.getName();
+            nmDeviceList.appendItem(name, devices[x]);
+        }
 
-	/*
-	var activeDevice = nm.getActiveDevice();
-	alert(activeDevice);
-	*/
+        /*
+        var activeDevice = nm.getActiveDevice();
+        alert(activeDevice);
+        */
 
-	nmDeviceList.selectedIndex = 0;
+        nmDeviceList.selectedIndex = 0;
 
-	var deviceChanged = function () {
-		updateDeviceInfo();
-	};
+        var deviceChanged = function () {
+            updateDeviceInfo();
+        };
 
-	nmDeviceList.addEventListener('select', deviceChanged, true);
-	
-	updateDeviceInfo();
+        nmDeviceList.addEventListener('select', deviceChanged, true);
+        
+        updateDeviceInfo();
+    } catch (e) {
+        // XXX: Problem talking to network manager.
+        nmDeviceList.appendItem("ERROR!!!", null);
+        nmDeviceList.selectedIndex = 0;
+    }
 }
 
 function updateDeviceInfo()
 {
-	try {
-		var nmDeviceList = document.getElementById('nmDeviceList');
-		var bus = DBUS.getSystemBus();
+    try {
+        var nmDeviceList = document.getElementById('nmDeviceList');
+        var bus = DBUS.getSystemBus();
 
-		var deviceId = nmDeviceList.selectedItem.value;
-		var device = bus.getObject("org.freedesktop.NetworkManager",
-					   deviceId, NM_IFACE_INTERFACE);
+        var deviceId = nmDeviceList.selectedItem.value;
+        var device = bus.getObject("org.freedesktop.NetworkManager",
+                       deviceId, NM_IFACE_INTERFACE);
 
-		var ip = new IPAddress(device.getIP4Address());
+        var ip = new IPAddress(device.getIP4Address());
 
-		/*
-		var network = bus.getObject("org.freedesktop.NetworkManager",
-					    ath0.getActiveNetwork(),
-					    nmNetworkInterface);
-		*/
+        /*
+        var network = bus.getObject("org.freedesktop.NetworkManager",
+                        ath0.getActiveNetwork(),
+                        nmNetworkInterface);
+        */
 
-		document.getElementById('nmDeviceName').value = device.getName();
-		document.getElementById('nmIPAddress').value = ip.toString();
-		//document.getElementById('nmESSID').value = network.getName();
-		
-		dump('aye');
-	} catch (e) {
-		alert(e);
-	}
+        document.getElementById('nmDeviceName').value = device.getName();
+        document.getElementById('nmIPAddress').value = ip.toString();
+        //document.getElementById('nmESSID').value = network.getName();
+        
+        dump('aye');
+    } catch (e) {
+        alert(e);
+    }
 }

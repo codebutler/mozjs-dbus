@@ -24,21 +24,34 @@
     along with mozjs-dbus.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<window id="main" title="My App" width="300" height="300"
+<window id="main" title="Mozilla JS DBUS Test" width="300" height="300"
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
-    <script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/nm.js"></script>
-    <script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/libnotify.js"></script>
-    <script type="text/javascript" src="chrome://mozjs-dbus-example/content/js/service.js"></script>
+    <script type="text/javascript" 
+            src="chrome://mozjs-dbus-example/content/js/nm.js">
+    </script>
+            
+    <script type="text/javascript" 
+            src="chrome://mozjs-dbus-example/content/js/libnotify.js">
+    </script>
+            
+    <script type="text/javascript" 
+            src="chrome://mozjs-dbus-example/content/js/service.js">
+    </script>
+                
+    <script type="text/javascript" 
+            src="chrome://mozjs-dbus-example/content/js/avahi.js">
+    </script>
+    
     <script type="text/javascript">
 
         var onLoad = function () {
             setupNM();
             setupLibNotify();
             setupService();
-        };
-        
-        window.addEventListener('load', onLoad, true);
+            setupAvahi();
+        };       
+        window.addEventListener("load", onLoad, true);
 
     </script>
 
@@ -47,6 +60,7 @@
             <tab label="Network Manager" />
             <tab label="libNotify" />
             <tab label="Service" />
+            <tab label="Avahi" />
         </tabs>
         <tabpanels flex="1">
             <tabpanel id="networkManagerTab">
@@ -114,6 +128,15 @@
                         </row>
                     </rows>
                 </grid>
+            </tabpanel>
+            <tabpanel id="avahiTab">
+                <!-- XXX: Hide Column Header -->
+                <tree flex="1" id="avahiTree" hidecolumnpicker="true" >
+                    <treecols>
+                        <treecol id="nameCol" hideheader="true" flex="1" primary="true" />
+                    </treecols>
+                    <treechildren id="avahiTreeChildren"/>
+                </tree>
             </tabpanel>
         </tabpanels>
     </tabbox>
