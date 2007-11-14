@@ -44,7 +44,8 @@ interface IMozJSDBusCoreComponent : nsISupports
                         in ACString methodName,
                         in unsigned long argsLength,
                         [array, size_is(argsLength)]
-                        in nsIVariant args);
+                        in nsIVariant args,
+                        in IJSCallback callback);
 
   void EmitSignal(in ACString busName,
                   in ACString objectPath,

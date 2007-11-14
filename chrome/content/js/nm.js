@@ -56,13 +56,13 @@ const NM_NETWORK_INTERFACE = {
 function setupNM ()
 {
     try {
-        var nmDeviceList = document.getElementById('nmDeviceList');
+        var nmDeviceList = document.getElementById("nmDeviceList");
 
         var bus = DBUS.getSystemBus();
         
         var nm = bus.getObject("org.freedesktop.NetworkManager",
-                       "/org/freedesktop/NetworkManager",
-                       NM_INTERFACE);
+                               "/org/freedesktop/NetworkManager",
+                               NM_INTERFACE);
 
         var devices = nm.getDevices();
 
@@ -75,7 +75,7 @@ function setupNM ()
             */
 
             var device = bus.getObject("org.freedesktop.NetworkManager",
-                           devices[x], NM_IFACE_INTERFACE);
+                                       devices[x], NM_IFACE_INTERFACE);
             var name = device.getName();
             nmDeviceList.appendItem(name, devices[x]);
         }

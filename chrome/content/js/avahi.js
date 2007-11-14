@@ -33,22 +33,31 @@ const AVAHI_DBUS_INTERFACE_HOST_NAME_RESOLVER = AVAHI_DBUS_NAME + ".HostNameReso
 const AVAHI_DBUS_INTERFACE_SERVICE_RESOLVER = AVAHI_DBUS_NAME + ".ServiceResolver";
 const AVAHI_DBUS_INTERFACE_RECORD_BROWSER = AVAHI_DBUS_NAME + ".RecordBrowser";
 
+const AVAHI_PROTOCOLS = { 0: "IPv4" };
+
 var bus = DBUS.getSystemBus();
 var server;
 
 // Top level tree
 var protocols = {};
 
+// Ech...
+var serviceNames = {};
+
 function newService (iface, proto, name, type, domain, flags) {
     dump("Found service '" + name + "' of type '" + type + "' in domain '" + domain + "' on '" + iface + ":" + proto + "'\n");
+    
+    var childrenItem = document.createElement("treechildren");
     
     var parent = protocols[proto].interfaces[iface].domains[domain].types[type].item;
     var item = document.createElement("treeitem");
     item.setAttribute("label", name);
     parent.appendChild(item);
-    item = item.appendChild(document.createElement("treechildren"));
+    item.appendChild(childrenItem);
     
-    protocols[proto].interfaces[iface].domains[domain].types[type].services[name] = { item: item };
+    var service = { iface: iface, proto: proto, name: name, type: type, domain: domain, flags: flags, item: childrenItem };
+    protocols[proto].interfaces[iface].domains[domain].types[type].services[name] = service;
+    serviceNames[name] = service;
 }
 
 function removeService(iface, proto, name, type, domain, flags) {
@@ -77,7 +86,7 @@ function newServiceType(iface, proto, type, domain, flags) {
         var serviceBrowserPath = server.ServiceBrowserNew(iface, proto, type, domain, DBUS.Uint32(0));
         var serviceBrowser = bus.getObject(AVAHI_DBUS_NAME, serviceBrowserPath, AVAHI_DBUS_INTERFACE_SERVICE_BROWSER);
 
-        serviceBrowser.connectToSignal('ItemNew', newService);
+        serviceBrowser.connectToSignal("ItemNew", newService);
         serviceBrowser.connectToSignal("ItemRemove", removeService);
     }
 }
@@ -99,29 +108,80 @@ function browseDomain(iface, proto, domain) {
     typeBrowser.connectToSignal("ItemNew", newServiceType);
 }
 
-function setupAvahi() {   
+function rowSelected(e) {
+    var tree = e.target;
+    var item = tree.contentView.getItemAtIndex(tree.currentIndex);
+    var name = tree.view.getCellText(tree.currentIndex, tree.columns.getColumnAt(0));
+
+    var service = serviceNames[name];
+    
+    if (service != null) {
+        dump("Trying to resolve service '" + service.name + "'...\n");
+            
+        var callback = function (iface, proto, name, type, domain, host, aproto, address, port, txt, flags) {
+            dump ("Service data for service '" + name + "' of type '" + type + "' in domain '" + domain + "' on " + iface + "." + proto + "\n");
+            dump ("Host " + host + " (" + address + "), port " + port + "\n");
+            
+            var ifaceName = server.GetNetworkInterfaceNameByIndex(iface);
+            
+            var value = $H({
+                "Service Type" : type,
+                "Service Name" : name,
+                "Domain Name"  : domain,
+                "Interface"    : ifaceName + " " + AVAHI_PROTOCOLS[proto],
+                "Address"      : host + "/" + address + ":" + port
+            });
+            
+            if (txt != null) {
+                txt.forEach(function(i) {
+                    var item = i.join("").split("=");
+                    value["TXT " + item[0]] = item[1];
+                });
+            }
+            
+                        
+            value = value.map(function(i) {
+                return "<html:b>" + i[0] + "</html:b>: " + i[1];
+            }).join("<html:br/>");
+            
+            document.getElementById("avahiServiceInfo").innerHTML = value;
+        };
         
-    server = bus.getObject(AVAHI_DBUS_NAME, AVAHI_DBUS_PATH_SERVER, AVAHI_DBUS_INTERFACE_SERVER);
-    
-    var protocol     = 0;
-    var protocolName = "IPv4";
+        server.ResolveService(service.iface, service.proto, service.name, 
+                              service.type, service.domain, -1, DBUS.Uint32(0), 
+                              callback);
+    } else {
+        document.getElementById("avahiServiceInfo").innerHTML = "";
+    }
+}
 
-    // XXX: Don't hard interface name, use network manager!
-    var interfaceName = "eth0";
-    var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
-    
-    var item = document.createElement("treeitem");
-    item.setAttribute("container", true);
-    item.setAttribute("open", true);
-    item.setAttribute("label", interfaceName + " " + protocolName);
-    document.getElementById("avahiTreeChildren").appendChild(item);
-    item = item.appendChild(document.createElement("treechildren"));
-    
-    protocols[protocol] = { name: protocolName, interfaces: {} };
-    protocols[protocol].interfaces[interfaceIndex] = { name: interfaceName, domains: {}, item: item };
-    
-    browseDomain(interfaceIndex, protocol, "local");
-    
+function setupAvahi() {   
+    try {
+        server = bus.getObject(AVAHI_DBUS_NAME, AVAHI_DBUS_PATH_SERVER, AVAHI_DBUS_INTERFACE_SERVER);
+        
+        var protocol     = 0;
+        var protocolName = "IPv4";
 
+        // XXX: Don't hard interface name, use network manager!
+        var interfaceName = "ath0";
+        var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
+        
+        var item = document.createElement("treeitem");
+        item.setAttribute("container", true);
+        item.setAttribute("open", true);
+        item.setAttribute("label", interfaceName + " " + protocolName);
+        document.getElementById("avahiTreeChildren").appendChild(item);
+        item = item.appendChild(document.createElement("treechildren"));
+        
+        protocols[protocol] = { name: protocolName, interfaces: {} };
+        protocols[protocol].interfaces[interfaceIndex] = { name: interfaceName, domains: {}, item: item };
+        
+        browseDomain(interfaceIndex, protocol, "local");
+        
+        document.getElementById("avahiTree").addEventListener("select", rowSelected, true);
+        
+    } catch (e) {
+        dump("Problem with AVAHI! " + e);
+    }
 }
 

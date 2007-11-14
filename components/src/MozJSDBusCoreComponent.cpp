@@ -41,6 +41,41 @@ using namespace std;
 
 NS_IMPL_ISUPPORTS1(MozJSDBusCoreComponent, IMozJSDBusCoreComponent)
 
+static void reply_handler_func(DBusPendingCall *call, void *user_data)
+{
+    DBusMessage             *message;
+    DBusMessageIter         iter;
+    nsCOMPtr<IJSCallback>   js_callback;
+    PRUint32                length;
+    nsIVariant**            args;
+    nsIVariant              *result;
+    const char*             interface;
+    const char*             name;
+    
+    js_callback = (IJSCallback*)user_data;
+    
+    message = dbus_pending_call_steal_reply(call);
+    
+    if (message != NULL) {
+        // XXX: These might always be null?
+        interface = dbus_message_get_interface(message);
+        name      = dbus_message_get_member(message);
+        
+        dbus_message_iter_init(message, &iter);
+        
+        args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
+
+        js_callback->Method(interface, name, args, length, &result);
+    } else {
+        // Timeout?
+        js_callback->Method(NULL, NULL, NULL, NULL, &result);
+    }
+}
+
+static void free_callback(void *user_data) {
+    // XXX: Uhh.. what' the opposite of NS_ADDREF?
+}
+
 static DBusHandlerResult
 filter_func(DBusConnection* connection,
             DBusMessage*    message,
@@ -57,7 +92,7 @@ filter_func(DBusConnection* connection,
     if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL) {
         interface = dbus_message_get_interface(message);
         name = dbus_message_get_member(message);
-
+        
         key = interface;
         key += "/";
         key += name;
@@ -77,7 +112,7 @@ filter_func(DBusConnection* connection,
             nsIVariant *result;
             js_callback->Method(interface, name, args, length, &result);
             
-            dbus_message_unref(message);
+         //   dbus_message_unref(message);
         }
     }
 }
@@ -112,6 +147,7 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
                                                  const nsACString &methodName,
                                                  const PRUint32   argsLength,
                                                  nsIVariant       **args,
+                                                 IJSCallback      *callback,
                                                  nsIVariant       **_retval)
 {
     const char*             cBusName;
@@ -141,28 +177,45 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
                                            cObjectPath,
                                            cInterface,
                                            cMethodName);
+
     dbus_message_iter_init_append(message, &iter);
 
     MozJSDBusMarshalling::appendArgs(message, &iter, argsLength, args);
 
-    reply = dbus_connection_send_with_reply_and_block(connection, message, -1, 
-                                                      &error);
-    dbus_message_unref(message);
+    if (callback == NULL) {
     
-    if (checkDBusError(error) == FALSE) {
+        reply = dbus_connection_send_with_reply_and_block(connection, message, -1, 
+                                                          &error);
+        dbus_message_unref(message);
+        
+        if (checkDBusError(error) == FALSE) {
 
-        dbus_message_iter_init(reply, &iter);
+            dbus_message_iter_init(reply, &iter);
 
-        variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
-
-        if (variant) {
-            NS_ADDREF(*_retval = variant);
-            return NS_OK;
+            variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
+        
+            if (variant) {
+                NS_ADDREF(*_retval = variant);
+                return NS_OK;
+            } else {
+                return NS_ERROR_FAILURE;
+            }
         } else {
             return NS_ERROR_FAILURE;
         }
+         
     } else {
-        return NS_ERROR_FAILURE;
+        DBusPendingCall *pending = NULL;
+        
+        int timeout = -1;
+        if (dbus_connection_send_with_reply(connection, message, &pending, timeout)) {
+            dbus_pending_call_set_notify(pending, reply_handler_func, callback, free_callback);
+            NS_ADDREF(callback);
+            return NS_OK;
+        } else {
+            // Actually, this means no memory.
+            return NS_ERROR_FAILURE;
+        }
     }
 }
 

@@ -199,7 +199,8 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
                                        "org.freedesktop.DBus.Introspectable",
                                        "Introspect",
                                        0,
-                                       []);
+                                       [],
+                                       null);
 
                 // DOCTYPE isnt supported by E4X
                 xml = xml.replace(/<!DOCTYPE[^>]+>/, '');
@@ -244,7 +245,7 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
         };
 
         // Create wrapper function for low-level dbus call
-        proxy.callMethod = function (methodName, methodArgs) {
+        proxy.callMethod = function (methodName, methodArgs, callback) {
                 if (methodArgs == null) {
                         methodArgs = [];
                 }
@@ -255,7 +256,8 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
                                                   this.interfaceName,
                                                   methodName,
                                                   methodArgs.length,
-                                                  methodArgs);
+                                                  methodArgs,
+                                                  callback);
 
                 return result;
         };
@@ -265,7 +267,18 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
                 var proxyFunction = function () {
                         var methodName = arguments.callee.methodName;
                         var argArray = Array.prototype.slice.call(arguments);
-                        return this.callMethod(methodName, argArray);
+                        
+                        // Callback specified as last argument. Yank it out and
+                        // pass it separately.
+                        if (argArray.length > 0 && typeof(argArray[argArray.length - 1]) == "function") {
+                            var callback = argArray.pop();
+                            var handler = function (interfaceName, signalName, args) {
+                                callback.apply(proxy, args);
+                            };
+                        } else {
+                            var handler = null;
+                        }
+                        return this.callMethod(methodName, argArray, handler);
                 };
                 proxyFunction.methodName = method.name;
                 proxy[method.name] = proxyFunction;

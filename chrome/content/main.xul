@@ -25,7 +25,12 @@
 -->
 
 <window id="main" title="Mozilla JS DBUS Test" width="300" height="300"
-    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+    xmlns:html="http://www.w3.org/1999/xhtml">
+
+    <script type="text/javascript" 
+            src="chrome://mozjs-dbus-example/content/js/prototype_for_xul.js">
+    </script>
 
     <script type="text/javascript" 
             src="chrome://mozjs-dbus-example/content/js/nm.js">
@@ -50,6 +55,19 @@
             setupLibNotify();
             setupService();
             setupAvahi();
+            /*
+            var bus = DBUS.getSessionBus();
+            var screenSaver = bus.getObject("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver", "org.gnome.ScreenSaver");
+            window.setInterval(function () {
+                dump("Idle: " + screenSaver.GetSessionIdle() + " " + screenSaver.GetSessionIdleTime() + "\n");
+            }, 500);
+            */
+            /*
+            screenSaver.connectToSignal("SessionIdleChanged", function (isIdle) {
+                dump("Idle is: " + isIdle + "\n");
+            });
+            */
+            
         };       
         window.addEventListener("load", onLoad, true);
 
@@ -130,13 +148,16 @@
                 </grid>
             </tabpanel>
             <tabpanel id="avahiTab">
-                <!-- XXX: Hide Column Header -->
-                <tree flex="1" id="avahiTree" hidecolumnpicker="true" >
-                    <treecols>
-                        <treecol id="nameCol" hideheader="true" flex="1" primary="true" />
-                    </treecols>
-                    <treechildren id="avahiTreeChildren"/>
-                </tree>
+                <vbox  flex="1">
+                    <tree flex="1" id="avahiTree" hidecolumnpicker="true">
+                        <treecols>
+                            <treecol id="nameCol" hideheader="true" flex="1" primary="true" />
+                        </treecols>
+                        <treechildren id="avahiTreeChildren"/>
+                    </tree>
+                    <html:div id="avahiServiceInfo">
+                    </html:div>
+                </vbox>
             </tabpanel>
         </tabpanels>
     </tabbox>

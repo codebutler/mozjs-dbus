@@ -96,59 +96,72 @@ MozJSDBusMarshalling::appendArgs(DBusMessage      *message,
 nsIVariant**
 MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter, PRUint32 *retLength)
 {
-    nsCOMPtr<nsIMutableArray>	    arrayItems;
+    nsCOMPtr<nsIMutableArray>       arrayItems;
     nsCOMPtr<nsIWritableVariant>    variant;
-    int				    current_type;
-    nsresult			    rv;
-    nsIVariant**		    variants;
-
+    int                             current_type;
+    nsresult                        rv;
+    nsIVariant**                    variants;
+    PRUint32                        length;
+    nsCOMPtr<nsIVariant>            item;
+    
     arrayItems = do_CreateInstance("@mozilla.org/array;1");
 
     while ((current_type = dbus_message_iter_get_arg_type (iter))
-	    != DBUS_TYPE_INVALID) {
+            != DBUS_TYPE_INVALID) {
+    
+        variant = unMarshallIter(current_type, iter);
+        
+        if (variant != NULL) {
+            arrayItems->AppendElement(variant, PR_FALSE);
+        }
 
-	variant = do_CreateInstance("@mozilla.org/variant;1", &rv);
-
-	if (dbus_type_is_basic(current_type)) {
-	    variant = unMarshallBasic(current_type, iter);
-	} else if (dbus_type_is_container(current_type)) {
-	    switch (current_type) {
-		case DBUS_TYPE_ARRAY:
-		{
-		    variant = unMarshallArray(current_type, iter);
-		    break;
-		}
-		case DBUS_TYPE_DICT_ENTRY:
-		{
-		    break;
-		}
-		default:
-		{
-		    break;
-		}
-	    }
-	}
-
-	if (variant != NULL) {
-	    arrayItems->AppendElement(variant, PR_FALSE);
-	}
-
-	dbus_message_iter_next(iter);
+        dbus_message_iter_next(iter);
     }
 
-    PRUint32 length;
     arrayItems->GetLength(&length);
 
     variants = new nsIVariant*[length];
 
     for (PRUint32 x = 0; x < length; x++) {
-	nsCOMPtr<nsIVariant> item = do_QueryElementAt(arrayItems, x);
-	variants[x] = item;
-	NS_ADDREF(item);
+        item = do_QueryElementAt(arrayItems, x);
+        variants[x] = item;
+        NS_ADDREF(item);
     }
 
     *retLength = length;
     return variants;
+}
+
+
+nsCOMPtr<nsIWritableVariant>
+MozJSDBusMarshalling::unMarshallIter(int current_type, DBusMessageIter *iter)
+{
+    nsCOMPtr<nsIWritableVariant>    variant;
+    nsresult rv;
+    
+    if (dbus_type_is_basic(current_type)) {
+        variant = unMarshallBasic(current_type, iter);
+    } else if (dbus_type_is_container(current_type)) {
+        switch (current_type) {
+            case DBUS_TYPE_ARRAY:
+            {
+                variant = unMarshallArray(current_type, iter);
+                break;
+            }
+            case DBUS_TYPE_DICT_ENTRY:
+            {
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
+    }
+    if (!variant) {
+        variant = do_CreateInstance("@mozilla.org/variant;1", &rv);
+    }
+    return variant;
 }
 
 nsCOMPtr<nsIWritableVariant>
@@ -156,7 +169,7 @@ MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
 {
     nsresult rv;
     nsCOMPtr<nsIWritableVariant> variant =
-		do_CreateInstance("@mozilla.org/variant;1", &rv);
+        do_CreateInstance("@mozilla.org/variant;1", &rv);
     if (NS_FAILED(rv)) {
         //PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
         return nsnull;
@@ -244,65 +257,37 @@ MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
     return variant;
 }
 
-
 nsCOMPtr<nsIWritableVariant>
 MozJSDBusMarshalling::unMarshallArray(int type, DBusMessageIter *iter)
 {
-    DBusMessageIter subiter;
+    DBusMessageIter                 subiter;
+    int                             current_subtype;
+    nsresult                        rv;
+    nsCOMPtr<nsIWritableVariant>    variant;
+    nsCOMPtr<nsIMutableArray>       arrayItems;
+    nsCOMPtr<nsIWritableVariant>    v;
+    
     dbus_message_iter_recurse(iter, &subiter);
-    int current_subtype;
+    
+    PRUint32 length;
+    
+    nsIVariant** array = getVariantArray(&subiter, &length);
+    
+    if (length > 0) {
+        variant = do_CreateInstance("@mozilla.org/variant;1", &rv);
+        
+        rv = variant->SetAsArray(nsIDataType::VTYPE_INTERFACE_IS,
+                                 &NS_GET_IID(nsIVariant), length, array);
 
-    nsresult rv;
-    nsCOMPtr<nsIWritableVariant> variant;
+        if (NS_FAILED(rv)) {
+            printf("AIEE!!!! PROBLEM!!!! %d\n", length);
+            return NULL;
+        }
 
-    nsCOMPtr<nsIMutableArray> arrayItems =
-	do_CreateInstance("@mozilla.org/array;1");
-
-	while ((current_subtype = dbus_message_iter_get_arg_type(&subiter))
-		!= DBUS_TYPE_INVALID) {
-
-		if (dbus_type_is_basic(current_subtype)) {
-			nsCOMPtr<nsIWritableVariant> v = MozJSDBusMarshalling::unMarshallBasic(current_subtype, &subiter);
-			arrayItems->AppendElement(v, PR_FALSE);
-		} else {
-			// Not supported!
-			break;
-		}
-
-		dbus_message_iter_next(&subiter);
-	}
-
-	variant = do_CreateInstance("@mozilla.org/variant;1", &rv);
-	if (NS_FAILED(rv)) {
-		//PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
-		return NULL;
-	}
-
-	PRUint32 length;
-	arrayItems->GetLength(&length);
-
-	// Return a pointer array, XPCOM will
-	// convert it into a native JS array.
-	nsIVariant** array = new nsIVariant*[length];
-	if (!array) {
-		return NULL;
-	}
-
-	for (PRUint32 x = 0; x < length; x++) {
-		nsCOMPtr<nsIVariant> item = do_QueryElementAt(arrayItems, x);
-		array[x] = item;
-		NS_ADDREF(item);
-	}
-
-	rv = variant->SetAsArray(nsIDataType::VTYPE_INTERFACE_IS,
-		&NS_GET_IID(nsIVariant), length, array);
-
-	if (NS_FAILED(rv)) {
-		printf("foo\n");
-		return NULL;
-	}
-
-	return variant;
+        return variant;
+    } else {
+        return NULL;
+    }
 }
 
 
@@ -328,7 +313,7 @@ MozJSDBusMarshalling::getDBusTypeAsSignature(int type)
         CASE_DBUS_TYPE_AS_STRING(DOUBLE)
         CASE_DBUS_TYPE_AS_STRING(STRING)
         //default:
-	//      PR_LOG(lm, PR_LOG_ERROR, 
+    //      PR_LOG(lm, PR_LOG_ERROR, 
         //          ("Unknown or unsupported nsIDataType: %d.\n", type) );
     }
 
@@ -570,19 +555,19 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             break;
         }
         case nsIDataType::VTYPE_WSTRING_SIZE_IS: {
-	    
-	    PRUnichar *str;
-	    PRUint32 size;
-	    param->GetAsWStringWithSize(&size, &str);
+        
+        PRUnichar *str;
+        PRUint32 size;
+        param->GetAsWStringWithSize(&size, &str);
 
-	    // XXX: Obviously, we want to use UTF8 here, not ASCII,
-	    // however I cannot get this to work. I think the problem is
-	    // related to this library being compiled with -fshort-wchar,
-	    // and the dbus library being compiled without it.
-	    nsCAutoString ascii_str =
-		NS_LossyConvertUTF16toASCII(str, size);
+        // XXX: Obviously, we want to use UTF8 here, not ASCII,
+        // however I cannot get this to work. I think the problem is
+        // related to this library being compiled with -fshort-wchar,
+        // and the dbus library being compiled without it.
+        nsCAutoString ascii_str =
+        NS_LossyConvertUTF16toASCII(str, size);
 
-	    const char *c_str = ascii_str.get();
+        const char *c_str = ascii_str.get();
 
             if (!dbus_message_iter_append_basic(it, 
                         DBUS_TYPE_STRING, &c_str)) { 
@@ -610,7 +595,7 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             break;
         }
         case nsIDataType::VTYPE_EMPTY: {
-	    printf("AAAHH!!!\n");
+        printf("AAAHH!!!\n");
             break;
         }
         default:
@@ -647,7 +632,7 @@ MozJSDBusMarshalling::getDataTypeSize(PRUint16 type)
             _ret = -1; 
             break;
        // default:
-	      //PR_LOG(lm, PR_LOG_ERROR, 
+          //PR_LOG(lm, PR_LOG_ERROR, 
               //    ("Unknown or unsupported nsIDataType: %d.\n", type) );
     }
     return _ret;
@@ -683,7 +668,7 @@ MozJSDBusMarshalling::getDataTypeAsDBusType(PRUint16 type)
         case nsIDataType::VTYPE_WSTRING_SIZE_IS:
             _ret = DBUS_TYPE_STRING; break;
     //    default:
-	      //PR_LOG(lm, PR_LOG_ERROR, 
+          //PR_LOG(lm, PR_LOG_ERROR, 
               //    ("Unknown or unsupported nsIDataType: %d.\n", type) );
     }
     return _ret;

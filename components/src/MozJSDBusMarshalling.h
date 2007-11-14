@@ -75,7 +75,7 @@ public:
             nsIVariant *, DBusMessageIter *);
 
 private:
-
+    static nsCOMPtr<nsIWritableVariant> unMarshallIter(int type, DBusMessageIter *iter);
     static nsCOMPtr<nsIWritableVariant> unMarshallBasic(int type, DBusMessageIter *iter);
     static nsCOMPtr<nsIWritableVariant> unMarshallArray(int type, DBusMessageIter *iter);
 
