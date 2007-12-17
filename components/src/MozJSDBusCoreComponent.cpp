@@ -177,6 +177,9 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
                                            cObjectPath,
                                            cInterface,
                                            cMethodName);
+    if (message == NULL) {
+        return NS_ERROR_OUT_OF_MEMORY;
+    }
 
     dbus_message_iter_init_append(message, &iter);
 
@@ -320,6 +323,9 @@ static DBusHandlerResult message_handler(DBusConnection  *connection,
     js_callback->Method(interface, member, args, length, &result);
 
     reply = dbus_message_new_method_return(message);
+    if (reply == NULL) {
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+    }
 
     if (result != NULL) {
         dbus_message_iter_init_append(reply, &iter);
@@ -354,6 +360,9 @@ NS_IMETHODIMP MozJSDBusCoreComponent::EmitSignal(const nsACString &busName,
     NS_CStringGetData(signalName, &cSignalName);
 
     message = dbus_message_new_signal(cObjectPath, cInterface, cSignalName);
+    if (message == NULL) {
+        return NS_ERROR_OUT_OF_MEMORY;
+    }
 
     if (args != NULL && argsLength > 0) {
         dbus_message_iter_init_append(message, &iter);

@@ -434,8 +434,8 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             break;
         }
         case nsIDataType::VTYPE_INTERFACE_IS: { 
-            // Create a DICT_ENTRY array
-            // TODO: User may want a STRUCT instead?
+            // XXX: Create a DICT_ENTRY array
+            // XXX: User may want a STRUCT instead?
 
             nsIID *iid;
             nsISupports *interface;
