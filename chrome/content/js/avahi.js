@@ -1,4 +1,5 @@
-/*
+/* vim:sw=4 sts=4 et ft=javascript
+ *
  * avahi.js: Example avahi-discover clone.
  *
  * Authors:
@@ -35,7 +36,7 @@ const AVAHI_DBUS_INTERFACE_RECORD_BROWSER = AVAHI_DBUS_NAME + ".RecordBrowser";
 
 const AVAHI_PROTOCOLS = { 0: "IPv4" };
 
-var bus = DBUS.getSystemBus();
+var bus = DBUS.systemBus;
 var server;
 
 var allSignalHandlers = [];
@@ -168,26 +169,37 @@ function avahiFound() {
         var protocol     = 0;
         var protocolName = "IPv4";
 
-        // XXX: Don't hard interface name, use network manager!
-        var interfaceName = "ath0";
-        var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
-        
-        var item = document.createElement("treeitem");
-        item.setAttribute("container", true);
-        item.setAttribute("open", true);
-        item.setAttribute("label", interfaceName + " " + protocolName);
-        document.getElementById("avahiTreeChildren").appendChild(item);
-        item = item.appendChild(document.createElement("treechildren"));
-        
-        protocols[protocol] = { name: protocolName, interfaces: {} };
-        protocols[protocol].interfaces[interfaceIndex] = { name: interfaceName, domains: {}, item: item };
-        
-        browseDomain(interfaceIndex, protocol, "local");
-        
-        document.getElementById("avahiTree").addEventListener("select", rowSelected, true);
-        
+	var nm = bus.getObject("org.freedesktop.NetworkManager",
+                               "/org/freedesktop/NetworkManager",
+                               NM_INTERFACE);
+
+        var devices = nm.getDevices();
+
+        for (var x = 0; x < devices.length; x++) {
+            var device = bus.getObject("org.freedesktop.NetworkManager",
+                                       devices[x], NM_IFACE_INTERFACE);
+
+            var interfaceName = device.getName();
+
+	    var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
+	    
+	    var item = document.createElement("treeitem");
+	    item.setAttribute("container", true);
+	    item.setAttribute("open", true);
+	    item.setAttribute("label", interfaceName + " " + protocolName);
+	    document.getElementById("avahiTreeChildren").appendChild(item);
+	    item = item.appendChild(document.createElement("treechildren"));
+	    
+	    protocols[protocol] = { name: protocolName, interfaces: {} };
+	    protocols[protocol].interfaces[interfaceIndex] = { name: interfaceName, domains: {}, item: item };
+	    
+	    browseDomain(interfaceIndex, protocol, "local");
+	    
+	    document.getElementById("avahiTree").addEventListener("select", rowSelected, true);
+	//}
+	    
     } catch (e) {
-        dump("Problem with AVAHI! " + e);
+        alert("Problem with AVAHI! " + e);
     }
 }
 

@@ -34,7 +34,7 @@ function setupLibNotify ()
 
     sendNotificationButton.addEventListener('command', sendNotification, true);
 
-    var bus = DBUS.getSessionBus();
+    var bus = DBUS.sessionBus;
     var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
                             NOTIFY_INTERFACE);
 
@@ -49,7 +49,7 @@ function setupLibNotify ()
 
 function sendNotification ()
 {
-    var bus = DBUS.getSessionBus();
+    var bus = DBUS.sessionBus;
     var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
                             NOTIFY_INTERFACE);
 

@@ -29,9 +29,9 @@ Components.utils.import("resource://app/modules/IPAddress.jsm");
 const NM_INTERFACE = {
        name: "org.freedesktop.NetworkManager",
     methods: [ 'getDevices',
-           'getActiveDevice',
-           'setActiveDevice',
-           'status' ]
+               'getActiveDevice',
+               'setActiveDevice',
+               'status' ]
 };
 
 /*
@@ -58,7 +58,7 @@ function setupNM ()
     try {
         var nmDeviceList = document.getElementById("nmDeviceList");
 
-        var bus = DBUS.getSystemBus();
+        var bus = DBUS.systemBus;
         
         var nm = bus.getObject("org.freedesktop.NetworkManager",
                                "/org/freedesktop/NetworkManager",
@@ -105,7 +105,7 @@ function updateDeviceInfo()
 {
     try {
         var nmDeviceList = document.getElementById('nmDeviceList');
-        var bus = DBUS.getSystemBus();
+        var bus = DBUS.systemBus;
 
         var deviceId = nmDeviceList.selectedItem.value;
         var device = bus.getObject("org.freedesktop.NetworkManager",

@@ -33,7 +33,7 @@ function setupService () {
     });
     iface.defineSignal('somethingHappen', 'ssi');
 
-    var bus = DBUS.getSessionBus();
+    var bus = DBUS.sessionBus;
     var service = bus.requestService('net.extremeboredom.TestService');
     service.exportObject('/Test', testObj);
 
