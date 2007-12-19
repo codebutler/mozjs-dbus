@@ -179,11 +179,98 @@ types.forEach(function (type) {
 var klass = Components.classes["@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"];
 DBUS.core = klass.createInstance(Components.interfaces.IMozJSDBusCoreComponent);
 
+DBusConnection.prototype.seenNames = [];
+DBusConnection.prototype.nameAddedHandlers = [];
+DBusConnection.prototype.nameRemovedHandlers = [];
+
 function DBusConnection(busName) {
     if (["session", "system"].indexOf(busName) == -1) {
         throw "Invalid bus name";
     }
+
     this.busName = busName;
+
+    var busInterface = this.getObject('org.freedesktop.DBus',
+                                      '/org/freedesktop/DBus',
+                                      'org.freedesktop.DBus');
+
+    var addName = function (name) {
+        if (this.seenNames.indexOf(name) == -1) {
+            this.seenNames.push(name);
+
+            if (this.nameAddedHandlers[name] != null) {
+                for (var x = 0; x < this.nameAddedHandlers[name].length; x++) {
+                    var signal = this.nameAddedHandlers[name][x];
+                    signal.apply(this, null);
+                }
+            }
+        }
+    };
+
+    var removeName = function (name) {
+        if (this.seenNames.indexOf(name) != -1) {
+            delete this.seenNames[this.seenNames.indexOf(name)];
+
+            if (this.nameRemovedHandlers[name] != null) {
+                for (var x = 0; x < this.nameRemovedHandlers[name].length; x++) {
+                    var signal = this.nameRemovedHandlers[name][x];
+                    signal.apply(this, null);
+                }
+            }
+        }
+    };
+
+    var nameOwnerChanged = function (name, old_owner, new_owner) {
+        //dump("*** Name Owner Changed: \n" + "    Name: " + name + "\n    Old: " + old_owner + "\n    New: " + new_owner + "\n");
+        if (old_owner == '' && new_owner != '') {
+            // Name Added!
+            addName.call(this.connection, name);
+        } else if (old_owner != '' && new_owner == '') {
+            // Name Removed!
+            removeName.call(this.connection, name);
+
+        }
+    };
+    busInterface.connectToSignal('NameOwnerChanged', nameOwnerChanged);
+    
+    var names = busInterface.ListNames()
+    for (var x = 0; x < names.length; x++) {
+        addName.call(this, names[x]);
+    }
+}
+
+// XXX: I need a cleaner way to do custom events.
+
+DBusConnection.prototype.addNameAddedHandler = function(serviceName, callback) {
+    // I can't decide if this is good or not...
+    // If we already have the name, fire event right away.
+    if (this.seenNames.indexOf(serviceName) != -1) {
+        callback.apply(this, null);
+    }
+
+    if (!this.nameAddedHandlers[serviceName]) {
+        this.nameAddedHandlers[serviceName] = [];
+    }
+    this.nameAddedHandlers[serviceName].push(callback);
+}
+
+DBusConnection.prototype.removeNameAddedHandler = function(serviceName) {
+    if (this.nameAddedHandlers[serviceName]) {
+        delete this.nameAddedHandlers[serviceName];
+    }
+}
+
+DBusConnection.prototype.addNameRemovedHandler = function(serviceName, callback) {
+    if (!this.nameRemovedHandlers[serviceName]) {
+        this.nameRemovedHandlers[serviceName] = [];
+    }
+    this.nameRemovedHandlers[serviceName].push(callback);
+}
+
+DBusConnection.prototype.removeNameRemovedHandler = function(serviceName) {
+    if (this.nameRemovedHandlers[serviceName]) {
+        delete this.nameRemovedHandlers[serviceName];
+    }
 }
 
 DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
@@ -236,12 +323,14 @@ DBusConnection.prototype.getObject = function(serviceName, objectPath, iface) {
                     handlerFunction.apply(proxy, args);
                 };
 
-                DBUS.core.ConnectToSignal(this.connection.busName,
-                                          this.serviceName,
-                                          this.connection.objectPath,
-                                          this.interfaceName,
-                                          signalName,
-                                          handler);
+                var id = DBUS.core.ConnectToSignal(this.connection.busName,
+                                                   this.serviceName,
+                                                   this.objectPath,
+                                                   this.interfaceName,
+                                                   signalName,
+                                                   handler);
+                dump("got teh idz: " + id + "\n");
+                return id;
         };
 
         // Create wrapper function for low-level dbus call
@@ -293,6 +382,10 @@ DBusConnection.prototype.requestService = function(serviceName) {
     } else {
         throw "Failed to request service.";
     }
+};
+
+DBusConnection.prototype.disconnectFromSignal = function (signalId) {
+    DBUS.core.DisconnectFromSignal(this.busName, signalId); 
 };
 
 function DBusService(connection, serviceName) {

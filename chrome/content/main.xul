@@ -29,10 +29,6 @@
     xmlns:html="http://www.w3.org/1999/xhtml">
 
     <script type="text/javascript" 
-            src="chrome://mozjs-dbus-example/content/js/prototype_for_xul.js">
-    </script>
-
-    <script type="text/javascript" 
             src="chrome://mozjs-dbus-example/content/js/nm.js">
     </script>
             
@@ -67,6 +63,11 @@
                 dump("Idle is: " + isIdle + "\n");
             });
             */
+
+            var bus = DBUS.getSessionBus();
+            bus.addNameAddedHandler('org.gnome.Banshee', function () {
+                alert('got banshee!');
+            });
             
         };       
         window.addEventListener("load", onLoad, true);

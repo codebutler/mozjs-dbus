@@ -122,8 +122,6 @@ function updateDeviceInfo()
         document.getElementById('nmDeviceName').value = device.getName();
         document.getElementById('nmIPAddress').value = ip.toString();
         //document.getElementById('nmESSID').value = network.getName();
-        
-        dump('aye');
     } catch (e) {
         alert(e);
     }

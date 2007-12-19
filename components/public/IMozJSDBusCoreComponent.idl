@@ -55,13 +55,16 @@ interface IMozJSDBusCoreComponent : nsISupports
                   [array, size_is(argsLength)]
                   in nsIVariant args);
 
-  void ConnectToSignal(in ACString busName,
-                       in ACString serviceName,
-                       in ACString objectPath,
-                       in ACString interfaceName,
-                       in ACString signalName,
-                       in IJSCallback callback);
-    
+  unsigned long ConnectToSignal(in ACString busName,
+                                in ACString serviceName,
+                                in ACString objectPath,
+                                in ACString interfaceName,
+                                in ACString signalName,
+                                in IJSCallback callback);
+
+  void DisconnectFromSignal(in ACString busName,
+                            in unsigned long id);
+
   boolean RequestService(in ACString busName,
                          in ACString serviceName);
   

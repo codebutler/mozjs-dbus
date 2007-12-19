@@ -81,19 +81,26 @@ filter_func(DBusConnection* connection,
             DBusMessage*    message,
             void*           user_data)
 {
-    const char              *interface;
-    const char              *name;
-    string                  key;
-    MozJSDBusCoreComponent  *core;
-    DBusMessageIter         iter;
-    nsIVariant**            args;
-    PRUint32                length;
+    const char             *interface;
+    const char             *name;
+    const char             *path;
+    string                 key;
+    MozJSDBusCoreComponent *core;
+    DBusMessageIter        iter;
+    nsIVariant**           args;
+    PRUint32               length;
+    SignalCallbackInfo     *info;
+    map<int, SignalCallbackInfo*> handlers;
+    map<int, SignalCallbackInfo*>::iterator handlerIter;
 
     if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL) {
         interface = dbus_message_get_interface(message);
         name = dbus_message_get_member(message);
+        path = dbus_message_get_path(message);
         
-        key = interface;
+        key = path;
+        key += "/";
+        key += interface;
         key += "/";
         key += name;
 
@@ -101,19 +108,22 @@ filter_func(DBusConnection* connection,
 
         if (core->signalCallbacks.find(key) != core->signalCallbacks.end()) {
 
-            SignalCallbackInfo *info = core->signalCallbacks[key];
+            handlers = core->signalCallbacks.find(key)->second;
 
-            nsCOMPtr<IJSCallback> js_callback = info->callback;
+            for (handlerIter = handlers.begin(); handlerIter != handlers.end(); handlerIter++) {
+                
+                info = handlerIter->second;
  
-            dbus_message_iter_init(message, &iter);
-    
-            args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
-           
-            nsIVariant *result;
-            js_callback->Method(interface, name, args, length, &result);
-            
-         //   dbus_message_unref(message);
-        }
+                dbus_message_iter_init(message, &iter);
+        
+                args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
+               
+                nsIVariant *result;
+                info->callback->Method(interface, name, args, length, &result);
+            }
+        } /* else {
+            cout << "DID NOT FIND KEY: " << key << " !!\n";
+        } */
     }
 }
 
@@ -227,7 +237,8 @@ NS_IMETHODIMP MozJSDBusCoreComponent::ConnectToSignal(const nsACString &busName,
                                                       const nsACString &objectPath,
                                                       const nsACString &interface,
                                                       const nsACString &signalName,
-                                                      IJSCallback *callback)
+                                                      IJSCallback      *callback,
+                                                      PRUint32         *result)
 {
     const char          *cServiceName;
     const char          *cObjectPath;
@@ -239,39 +250,87 @@ NS_IMETHODIMP MozJSDBusCoreComponent::ConnectToSignal(const nsACString &busName,
     DBusError           error;
     DBusConnection      *connection;
     SignalCallbackInfo  *info;
-
+    int                 id;
+    
     dbus_error_init(&error);
 
     NS_CStringGetData(serviceName, &cServiceName);
     NS_CStringGetData(objectPath, &cObjectPath);
     NS_CStringGetData(interface, &cInterface);
     NS_CStringGetData(signalName, &cSignalName);
-
-    info = (SignalCallbackInfo*) malloc(sizeof(SignalCallbackInfo));
-    info->serviceName = strdup(cServiceName);
-    info->objectPath  = strdup(cObjectPath);
-    info->interface   = strdup(cInterface);
-    info->signalName  = strdup(cSignalName);
-    info->callback    = callback;
-    NS_ADDREF(callback);
-    
     NS_CStringGetData(busName, &cBusName);
+
     connection = GetConnection((char*)cBusName);
 
     matchRule = "type='signal',interface='";
     matchRule += cInterface;
     matchRule += "',member='";
     matchRule += cSignalName;
+    matchRule += "',path='";
+    matchRule += cObjectPath;
     matchRule += "'";
+    cout << "ADD MATCH: " << matchRule << "\n";
     dbus_bus_add_match(connection, matchRule.c_str(), &error);
 
     checkDBusError(error);
 
-    key = cInterface;
+    key = cObjectPath;
+    key += "/";
+    key += cInterface;
     key += "/";
     key += cSignalName;
 
-    signalCallbacks[key] = info;
+    info = (SignalCallbackInfo*) malloc(sizeof(SignalCallbackInfo));
+    info->match_rule = strdup(matchRule.c_str());
+    info->key        = strdup(key.c_str());
+    info->callback   = callback;
+
+    NS_ADDREF(callback);
+    // XXX: Check id for uniqueness, just to be sure.
+    id = rand();
+    signalCallbacks[key][id] = info;
+
+    (*result) = id;
+}
+
+NS_IMETHODIMP MozJSDBusCoreComponent::DisconnectFromSignal(const nsACString &busName,
+                                                           const PRUint32   id)
+{
+    DBusConnection     *connection;
+    const char         *cBusName;
+    DBusError          dbus_error;
+    SignalCallbackInfo *info;
+    string             key;
+    map<string, map<int, SignalCallbackInfo*> >::iterator iter; 
+    map<int, SignalCallbackInfo*>::iterator callbackIter; 
+
+    dbus_error_init(&dbus_error);
+
+    NS_CStringGetData(busName, &cBusName);
+    connection = GetConnection((char*)cBusName);
+
+    // This is just lovely...
+    for (iter = signalCallbacks.begin(); iter != signalCallbacks.end(); iter++) {
+        map<int, SignalCallbackInfo*> callbacks = iter->second;
+        for (callbackIter = callbacks.begin(); callbackIter != callbacks.end(); callbackIter++) {
+            if (callbackIter->first == id) {
+                info = callbackIter->second;
+                break;
+            }
+        }
+    }
+
+    dbus_bus_remove_match(connection, info->match_rule, &dbus_error);
+
+    key = info->key;
+    iter = signalCallbacks.find(key);
+    if (iter != signalCallbacks.end()) {
+        signalCallbacks.erase(iter);
+    }
+
+    free(info);
+
+    return NS_OK;
 }
 
 NS_IMETHODIMP MozJSDBusCoreComponent::RequestService(const nsACString &busName,

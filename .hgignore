@@ -1,4 +1,12 @@
 syntax: glob
 *.swp
 *.swo
+*.swn
+*.pp
+*.o
 *~
+components/public/_xpidlgen/
+components/src/*.so
+
+syntax: regexp
+Makefile$

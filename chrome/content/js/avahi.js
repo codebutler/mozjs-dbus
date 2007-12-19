@@ -38,6 +38,8 @@ const AVAHI_PROTOCOLS = { 0: "IPv4" };
 var bus = DBUS.getSystemBus();
 var server;
 
+var allSignalHandlers = [];
+
 // Top level tree
 var protocols = {};
 
@@ -86,8 +88,8 @@ function newServiceType(iface, proto, type, domain, flags) {
         var serviceBrowserPath = server.ServiceBrowserNew(iface, proto, type, domain, DBUS.Uint32(0));
         var serviceBrowser = bus.getObject(AVAHI_DBUS_NAME, serviceBrowserPath, AVAHI_DBUS_INTERFACE_SERVICE_BROWSER);
 
-        serviceBrowser.connectToSignal("ItemNew", newService);
-        serviceBrowser.connectToSignal("ItemRemove", removeService);
+        allSignalHandlers.push(serviceBrowser.connectToSignal("ItemNew", newService));
+        allSignalHandlers.push(serviceBrowser.connectToSignal("ItemRemove", removeService));
     }
 }
 
@@ -105,7 +107,7 @@ function browseDomain(iface, proto, domain) {
     
     protocols[proto].interfaces[iface].domains[domain] = { types: {}, item: item };
 
-    typeBrowser.connectToSignal("ItemNew", newServiceType);
+    allSignalHandlers.push(typeBrowser.connectToSignal("ItemNew", newServiceType));
 }
 
 function rowSelected(e) {
@@ -139,7 +141,6 @@ function rowSelected(e) {
                 });
             }
             
-                        
             value = value.map(function(i) {
                 return "<html:b>" + i[0] + "</html:b>: " + i[1];
             }).join("<html:br/>");
@@ -155,7 +156,12 @@ function rowSelected(e) {
     }
 }
 
-function setupAvahi() {   
+function setupAvahi() {
+    bus.addNameAddedHandler(AVAHI_DBUS_NAME, avahiFound);
+    bus.addNameRemovedHandler(AVAHI_DBUS_NAME, avahiLost);
+}
+
+function avahiFound() {
     try {
         server = bus.getObject(AVAHI_DBUS_NAME, AVAHI_DBUS_PATH_SERVER, AVAHI_DBUS_INTERFACE_SERVER);
         
@@ -183,5 +189,26 @@ function setupAvahi() {
     } catch (e) {
         dump("Problem with AVAHI! " + e);
     }
+}
+
+function avahiLost() {
+    dump("Lost avahi!\n");
+    
+    // Disconnect all signals
+    for (var x = 0; x < allSignalHandlers.length; x++) {
+        var signalId = allSignalHandlers[x];
+        bus.disconnectFromSignal(signalId);
+    }
+    allSignalHandlers = [];
+
+    // Clear the tree
+    var children = document.getElementById("avahiTreeChildren");
+    while (children.hasChildNodes()) {
+        children.removeChild(children.firstChild);
+    }
+
+    // Clear the cache
+    protocols = {};
+    serviceNames = {};
 }
 

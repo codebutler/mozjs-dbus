@@ -44,10 +44,8 @@ static bool checkDBusError(DBusError error);
 
 typedef struct
 {
-    const char *serviceName;
-    const char *objectPath;
-    const char *interface;
-    const char *signalName;
+    const char  *match_rule;
+    const char  *key;
     IJSCallback *callback;
 } SignalCallbackInfo;
 
@@ -60,8 +58,7 @@ public:
     MozJSDBusCoreComponent();
     virtual ~MozJSDBusCoreComponent();
 
-    // XXX: This should be a hashtable!
-    std::map<string, SignalCallbackInfo*> signalCallbacks;
+    std::map<string, std::map<int, SignalCallbackInfo*> > signalCallbacks;
     
 private:
     DBusConnection *systemConnection;
