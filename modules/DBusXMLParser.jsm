@@ -1,4 +1,5 @@
-/*
+/* vim:sw=4 sts=4 et ft=javascript
+ *
  * DBusXMLParser.jsm: Parses DBUS object introspection XML.
  *
  * Authors:
@@ -22,83 +23,86 @@
  */
 
 EXPORTED_SYMBOLS = [
-	"DBusXMLParser",
+    "DBusXMLParser",
 
-	"DBusInterface",
-	"DBusMethod",
-	"DBusMethodArg",
-	"DBusSignal",
-	"DBusProperty",
-	"DBusAnnotation"
+    "DBusInterface",
+    "DBusMethod",
+    "DBusMethodArg",
+    "DBusSignal",
+    "DBusProperty",
+    "DBusAnnotation"
 ];
 
 var DBusXMLParser = {
 
-	parse: function(rootElement) {
-		var interfaceElements = rootElement.interface;
-		
-		var interface = new DBusInterface();
+    parse: function(rootElement) {
+        var interfaces = [];
 
-		for (var i = 0; i < interfaceElements.length(); i++) {
-			var interfaceElement = interfaceElements[i];
+        var interfaceElements = rootElement.interface;
+        
+        for (var i = 0; i < interfaceElements.length(); i++) {
+            
+            var interfaceElement = interfaceElements[i];
 
-			// Parse methods
-			var methodElements = interfaceElement.method;
-			for (var x = 0; x < methodElements.length(); x++) {
-				var methodElement = methodElements[x];
-				var methodArgElements = methodElement.arg;
+            var interfaceName = interfaceElement.@name;
+            var interface = new DBusInterface(interfaceName);
 
-				var methodName = methodElement.@name;
+            // Parse methods
+            var methodElements = interfaceElement.method;
+            for (var x = 0; x < methodElements.length(); x++) {
+                var methodElement = methodElements[x];
+                var methodArgElements = methodElement.arg;
 
-				var method = new DBusMethod(methodName);
+                var methodName = methodElement.@name;
 
-				for (var y = 0; y < methodArgElements.length(); y++) {
-					var methodArgElement = methodArgElements[y];
+                var method = new DBusMethod(methodName);
 
-					if (methodArgElement.@direction == 'in') {
-						var methodArgName = methodArgElement.@name;
-						var methodArg = new DBusMethodArg(methodArgName);
-						method.args.push(methodArg);
-					} else {
-						// What to do?
-					}
-				}
+                for (var y = 0; y < methodArgElements.length(); y++) {
+                    var methodArgElement = methodArgElements[y];
 
-				interface.methods.push(method);
-			}
+                    if (methodArgElement.@direction == 'in') {
+                        var methodArgName = methodArgElement.@name;
+                        var methodArg = new DBusMethodArg(methodArgName);
+                        method.args.push(methodArg);
+                    } else {
+                        // What to do?
+                    }
+                }
 
-			// Parse properties
-			// Parse Signals
-		}
-		return interface;
-	}
+                interface.methods.push(method);
+            }
+
+            // XXX: Parse properties
+            // XXX: Parse Signals
+            
+            interfaces.push(interface);
+        }
+        return interfaces;
+    }
 
 };
 
 /** Types for object representation of xml data **/
 
-function DBusInterface () {
-	
+function DBusInterface (name) {
+    this.name = name;
 }
 DBusInterface.prototype.methods = [];
 
 function DBusMethod (name) {
-	this.name = name;
+    this.name = name;
 }
 DBusMethod.prototype.args = [];
 
 function DBusMethodArg (name) {
-	this.name = name;
+    this.name = name;
 }
 
 function DBusSignal () {
-
 }
 
 function DBusProperty () {
-
 }
 
 function DBusAnnotation () {
-
 }

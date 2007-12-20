@@ -34,44 +34,6 @@ Cu.import("resource://app/modules/ArrayConverter.jsm");
 Cu.import("resource://app/modules/ProxyUtils.jsm");
 
 function DBusObject () {
-    var obj = this;
-    this.interfaces = {};
-    this.defineInterface = function (name) {
-        var iface = {};
-        iface.name = name;
-        iface.methods = {};
-        iface.signals = {};
-        iface.defineMethod = function (methodName, inSignature, outSignature, func) {
-            var method = {
-                 inSignature: inSignature,
-                outSignature: outSignature, 
-                      method: func
-            };
-            this.methods[methodName] = method;
-        };
-
-        iface.defineSignal = function (signalName, signature) {
-            var signal = {
-                signature: signature
-            };
-            this.signals[signalName] = signal;
-        };
-
-        iface.emitSignal = function (signalName) {
-            var args = Array.prototype.slice.call(arguments, 1);
-            DBUS.core.EmitSignal(obj.connection.busName,
-                                 obj.objectPath,
-                                 iface.name,
-                                 signalName,
-                                 args.length,
-                                 args);
-        };
-
-        this.interfaces[name] = iface;
-
-        return iface;
-    };
-
     var introspectInterface = this.defineInterface('org.freedesktop.DBus.Introspectable');
     var serviceName = this.serviceName;
     var obj = this;
@@ -140,8 +102,48 @@ function DBusObject () {
 
         return doctype + xml.toXMLString();
     });
+};
 
-    this.methodHandler = function (interfaceName, methodName, args) {
+DBusObject.prototype = {
+    defineInterface: function (name) {
+        var obj = this;
+
+        var iface = {};
+        iface.name = name;
+        iface.methods = {};
+        iface.signals = {};
+        iface.defineMethod = function (methodName, inSignature, outSignature, func) {
+            var method = {
+                 inSignature: inSignature,
+                outSignature: outSignature, 
+                      method: func
+            };
+            this.methods[methodName] = method;
+        };
+
+        iface.defineSignal = function (signalName, signature) {
+            var signal = {
+                signature: signature
+            };
+            this.signals[signalName] = signal;
+        };
+
+        iface.emitSignal = function (signalName) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            DBUS.core.EmitSignal(obj.connection.busName,
+                                 obj.objectPath,
+                                 iface.name,
+                                 signalName,
+                                 args.length,
+                                 args);
+        };
+
+        this.interfaces[name] = iface;
+
+        return iface;
+    },
+
+    methodHandler: function (interfaceName, methodName, args) {
         var iface = obj.interfaces[interfaceName];
         if (iface != null) {
             var methodInfo = iface.methods[methodName];
@@ -151,7 +153,9 @@ function DBusObject () {
             }
         }
         throw "Method not found";
-    };
+    }, 
+
+    interfaces: {}
 };
 
 var DBUS = {
@@ -228,6 +232,7 @@ function DBusConnection(busName) {
         if (old_owner == '' && new_owner != '') {
             // Name Added!
             addName.call(this.connection, name);
+
         } else if (old_owner != '' && new_owner == '') {
             // Name Removed!
             removeName.call(this.connection, name);
@@ -281,9 +286,9 @@ DBusConnection.prototype = {
 
     getObject: function(serviceName, objectPath, iface) {
 
-        if (typeof(iface) == 'string') {
-            var interfaceName = iface;
+        var objectInterface = null;
 
+        if (typeof(iface) == 'string') {
             // Get the introspection xml
             // XXX: We need to first check if this object supports introspection!!
             var xml = DBUS.core.CallMethod(this.busName,
@@ -295,90 +300,41 @@ DBusConnection.prototype = {
                                            [],
                                            null);
 
-                    // DOCTYPE isnt supported by E4X
-                    xml = xml.replace(/<!DOCTYPE[^>]+>/, '');
+            // DOCTYPE isnt supported by E4X
+            xml = xml.replace(/<!DOCTYPE[^>]+>/, '');
 
-                    // Nor is <?xml...
-                    xml = xml.replace(/<\?xml[^\?>]+\?>/, '');
-                    
-                    //dump(xml);
+            // Nor is <?xml...
+            xml = xml.replace(/<\?xml[^\?>]+\?>/, '');
+            
+            //dump(xml);
 
-                    xml = new XML(xml);
+            xml = new XML(xml);
 
-                    // Parse the xml
-                    var objectInterface = DBusXMLParser.parse(xml);
-            } else {
-                    var interfaceName = iface.name;
+            // Parse the xml
+            var interfaces = DBusXMLParser.parse(xml);
 
-                    var objectInterface = new DBusInterface();
-                    objectInterface.methods = iface.methods.map(function(methodName) {
-                            return new DBusMethod(methodName);
-                    });
+            // Find the requested interface
+            for (var x = 0; x < interfaces.length; x++) {
+                var i = interfaces[x];
+                if (i.name == iface) {
+                    objectInterface = i;
+                    break;
+                }
             }
 
-            // Create proxy object
-            var proxy = {};
-            proxy.connection = this;
-            proxy.serviceName = serviceName;
-            proxy.objectPath = objectPath;
-            proxy.interfaceName = interfaceName;
+            if (objectInterface == null) {
+                throw "Object does not support this interface.";
+            }
 
-            proxy.connectToSignal = function (signalName, handlerFunction) {
-
-                    var handler = function (interfaceName, signalName, args) {
-                        handlerFunction.apply(proxy, args);
-                    };
-
-                    var id = DBUS.core.ConnectToSignal(this.connection.busName,
-                                                       this.serviceName,
-                                                       this.objectPath,
-                                                       this.interfaceName,
-                                                       signalName,
-                                                       handler);
-                    return id;
-            };
-
-            // Create wrapper function for low-level dbus call
-            proxy.callMethod = function (methodName, methodArgs, callback) {
-                    if (methodArgs == null) {
-                            methodArgs = [];
-                    }
-
-                    var result = DBUS.core.CallMethod(this.connection.busName,
-                                                      this.serviceName,
-                                                      this.objectPath,
-                                                      this.interfaceName,
-                                                      methodName,
-                                                      methodArgs.length,
-                                                      methodArgs,
-                                                      callback);
-
-                    return result;
-            };
-
-            // Create proxy functions for dbus methods
-            objectInterface.methods.forEach(function (method) {
-                    var proxyFunction = function () {
-                            var methodName = arguments.callee.methodName;
-                            var argArray = Array.prototype.slice.call(arguments);
-                            
-                            // Callback specified as last argument. Yank it out and
-                            // pass it separately.
-                            if (argArray.length > 0 && typeof(argArray[argArray.length - 1]) == "function") {
-                                var callback = argArray.pop();
-                                var handler = function (interfaceName, signalName, args) {
-                                    callback.apply(proxy, args);
-                                };
-                            } else {
-                                var handler = null;
-                            }
-                            return this.callMethod(methodName, argArray, handler);
-                    };
-                    proxyFunction.methodName = method.name;
-                    proxy[method.name] = proxyFunction;
+        } else {
+            objectInterface = new DBusInterface(iface.name);
+            objectInterface.methods = iface.methods.map(function(methodName) {
+                    return new DBusMethod(methodName);
             });
+        }
 
-            return proxy;
+        var proxy = new DBusProxyObject(this, serviceName, objectPath, objectInterface);
+        return proxy;
     },
 
     requestService: function(serviceName) {
@@ -409,5 +365,71 @@ DBusService.prototype = {
         DBUS.core.RegisterObject(busName, objectPath, obj.methodHandler);
         obj.connection = this.connection;
         obj.objectPath = objectPath;
+    }
+};
+
+function DBusProxyObject (connection, serviceName, objectPath, objectInterface)
+{
+    this.connection = connection;
+    this.serviceName = serviceName;
+    this.objectPath = objectPath;
+    this.interfaceName = objectInterface.name;
+       
+    var proxy = this;
+
+    // Create proxy functions for dbus methods
+    objectInterface.methods.forEach(function (method) {
+        var proxyFunction = function () {
+            var methodName = arguments.callee.methodName;
+            var argArray = Array.prototype.slice.call(arguments);
+            
+            // Callback specified as last argument. Yank it out and
+            // pass it separately.
+            if (argArray.length > 0 && typeof(argArray[argArray.length - 1]) == "function") {
+                var callback = argArray.pop();
+                var handler = function (interfaceName, signalName, args) {
+                    callback.apply(proxy, args);
+                };
+            } else {
+                var handler = null;
+            }
+            return this.callMethod(methodName, argArray, handler);
+        };
+        proxyFunction.methodName = method.name;
+        proxy[method.name] = proxyFunction;
+    });
+}
+
+DBusProxyObject.prototype = {
+    connectToSignal: function (signalName, handlerFunction) {
+        var obj = this;
+        var handler = function (interfaceName, signalName, args) {
+            handlerFunction.apply(obj, args);
+        };
+
+        var id = DBUS.core.ConnectToSignal(this.connection.busName,
+                                           this.serviceName,
+                                           this.objectPath,
+                                           this.interfaceName,
+                                           signalName,
+                                           handler);
+        return id;
+    },
+
+    callMethod: function (methodName, methodArgs, callback) {
+        if (methodArgs == null) {
+                methodArgs = [];
+        }
+
+        var result = DBUS.core.CallMethod(this.connection.busName,
+                                          this.serviceName,
+                                          this.objectPath,
+                                          this.interfaceName,
+                                          methodName,
+                                          methodArgs.length,
+                                          methodArgs,
+                                          callback);
+
+        return result;
     }
 };

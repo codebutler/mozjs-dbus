@@ -169,7 +169,7 @@ function avahiFound() {
         var protocol     = 0;
         var protocolName = "IPv4";
 
-	var nm = bus.getObject("org.freedesktop.NetworkManager",
+        var nm = bus.getObject("org.freedesktop.NetworkManager",
                                "/org/freedesktop/NetworkManager",
                                NM_INTERFACE);
 
@@ -180,24 +180,23 @@ function avahiFound() {
                                        devices[x], NM_IFACE_INTERFACE);
 
             var interfaceName = device.getName();
-
-	    var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
-	    
-	    var item = document.createElement("treeitem");
-	    item.setAttribute("container", true);
-	    item.setAttribute("open", true);
-	    item.setAttribute("label", interfaceName + " " + protocolName);
-	    document.getElementById("avahiTreeChildren").appendChild(item);
-	    item = item.appendChild(document.createElement("treechildren"));
-	    
-	    protocols[protocol] = { name: protocolName, interfaces: {} };
-	    protocols[protocol].interfaces[interfaceIndex] = { name: interfaceName, domains: {}, item: item };
-	    
-	    browseDomain(interfaceIndex, protocol, "local");
-	    
-	    document.getElementById("avahiTree").addEventListener("select", rowSelected, true);
-	//}
-	    
+            var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
+        
+            var item = document.createElement("treeitem");
+            item.setAttribute("container", true);
+            item.setAttribute("open", true);
+            item.setAttribute("label", interfaceName + " " + protocolName);
+            document.getElementById("avahiTreeChildren").appendChild(item);
+            item = item.appendChild(document.createElement("treechildren"));
+            
+            protocols[protocol] = { name: protocolName, interfaces: {} };
+            protocols[protocol].interfaces[interfaceIndex] = { name: interfaceName, domains: {}, item: item };
+            
+            browseDomain(interfaceIndex, protocol, "local");
+            
+            document.getElementById("avahiTree").addEventListener("select", rowSelected, true);
+        }
+    
     } catch (e) {
         alert("Problem with AVAHI! " + e);
     }
