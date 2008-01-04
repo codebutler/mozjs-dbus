@@ -22,8 +22,6 @@
  *
  */
 
-Components.utils.import("resource://app/modules/DBUS.jsm");
-
 const NOTIFY_SERVICE     = "org.freedesktop.Notifications";
 const NOTIFY_INTERFACE   = "org.freedesktop.Notifications";
 const NOTIFY_OBJECT_PATH = "/org/freedesktop/Notifications";
@@ -37,6 +35,8 @@ function setupLibNotify ()
     var bus = DBUS.sessionBus;
     var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
                             NOTIFY_INTERFACE);
+
+    alert(nf.GetCapabilities());
 
     nf.connectToSignal('NotificationClosed', function (id, reason) {
         alert('Notification Closed! ' + id + ' .. ' + reason);

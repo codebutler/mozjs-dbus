@@ -21,9 +21,6 @@
  *
  */
 
-Components.utils.import("resource://app/modules/DBUS.jsm");
-Components.utils.import("resource://app/modules/IPAddress.jsm");
-
 // NetworkManager does not support introspection, so we specify
 // what this interface supports.
 const NM_INTERFACE = {
@@ -34,18 +31,9 @@ const NM_INTERFACE = {
                'status' ]
 };
 
-/*
 const NM_IFACE_INTERFACE = {
        name: "org.freedesktop.NetworkManager.Devices",
-    methods: {          'getName': [ DBUS.STRING_TYPE, DBUS.INTEGER_TYPE ],
-                  'getIP4Address': [ DBUS.BOOL_TYPE ],
-           'getActiveNetwork': [] }
-};
-*/
-
-const NM_IFACE_INTERFACE = {
-       name: "org.freedesktop.NetworkManager.Devices",
-    methods: [ 'getName', 'getIP4Address', 'getActiveNetwork' ]
+    methods: [ 'getName', 'getIP4Address', 'getType', 'getActiveNetwork' ]
 };
 
 const NM_NETWORK_INTERFACE = {
@@ -80,11 +68,6 @@ function setupNM ()
             nmDeviceList.appendItem(name, devices[x]);
         }
 
-        /*
-        var activeDevice = nm.getActiveDevice();
-        alert(activeDevice);
-        */
-
         nmDeviceList.selectedIndex = 0;
 
         var deviceChanged = function () {
@@ -113,15 +96,20 @@ function updateDeviceInfo()
 
         var ip = new IPAddress(device.getIP4Address());
 
-        /*
-        var network = bus.getObject("org.freedesktop.NetworkManager",
-                        ath0.getActiveNetwork(),
-                        nmNetworkInterface);
-        */
+        var type = device.getType();
 
         document.getElementById('nmDeviceName').value = device.getName();
         document.getElementById('nmIPAddress').value = ip.toString();
-        //document.getElementById('nmESSID').value = network.getName();
+
+        if (type == 2) {
+            var network = bus.getObject("org.freedesktop.NetworkManager",
+                                        device.getActiveNetwork(),
+                                        NM_NETWORK_INTERFACE);
+
+            document.getElementById('nmESSID').value = network.getName();
+        } else {
+            document.getElementById('nmESSID').value = "(Not wireless)";
+        }
     } catch (e) {
         alert(e);
     }

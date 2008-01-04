@@ -31,10 +31,16 @@ include $(DEPTH)/config/autoconf.mk
 MODULE		= mozjs_dbus
 XPI_NAME	= mozjs_dbus
 
+XPI_NAME               = mozjs_dbus
+USE_EXTENSION_MANIFEST = 1
+NO_JAR_AUTO_REG        = 1
+INSTALL_EXTENSION_ID   = mozjs_dbus@extremeboredom.net
+XPI_PKGNAME            = mozjs_dbus-1.0
+
 DIRS		= components modules
 
 PREF_JS_EXPORTS = $(srcdir)/defaults/preferences/prefs.js
-DIST_FILES	= application.ini
+DIST_FILES	= application.ini install.rdf
 
 MODULES 	= modules/DBusXMLParser.jsm 	\
 		  modules/DBUS.jsm		\

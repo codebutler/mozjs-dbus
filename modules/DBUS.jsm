@@ -29,9 +29,9 @@ const Cu = Components.utils;
 
 EXPORTED_SYMBOLS = ["DBUS", "DBusObject"];
 
-Cu.import("resource://app/modules/DBusXMLParser.jsm");
-Cu.import("resource://app/modules/ArrayConverter.jsm");
-Cu.import("resource://app/modules/ProxyUtils.jsm");
+Cu.import("resource://mozjs_dbus/DBusXMLParser.jsm");
+Cu.import("resource://mozjs_dbus/ArrayConverter.jsm");
+Cu.import("resource://mozjs_dbus/ProxyUtils.jsm");
 
 function DBusObject () {
     var introspectInterface = this.defineInterface('org.freedesktop.DBus.Introspectable');

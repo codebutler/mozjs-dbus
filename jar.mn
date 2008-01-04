@@ -6,3 +6,4 @@ mozjsdbus.jar:
   chrome/content/js/libnotify.js            (content/js/libnotify.js)
   chrome/content/js/service.js              (content/js/service.js)
   chrome/content/js/avahi.js                (content/js/avahi.js)
+% resource mozjs_dbus modules/
