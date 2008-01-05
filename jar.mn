@@ -1,9 +1,11 @@
 mozjsdbus.jar:
-% content mozjs-dbus-example %chrome/content/
-  chrome/content/main.xul                   (content/main.xul)
-  chrome/content/js/nm.js                   (content/js/nm.js)
-  chrome/content/js/prototype_for_xul.js    (content/js/prototype_for_xul.js)
-  chrome/content/js/libnotify.js            (content/js/libnotify.js)
-  chrome/content/js/service.js              (content/js/service.js)
-  chrome/content/js/avahi.js                (content/js/avahi.js)
 % resource mozjs_dbus modules/
+
+mozjsdbus_example.jar:
+% content mozjs-dbus-example %chrome/content/
+  chrome/content/main.xul                   (chrome/example-content/main.xul)
+  chrome/content/js/nm.js                   (chrome/example-content/js/nm.js)
+  chrome/content/js/prototype_for_xul.js    (chrome/example-content/js/prototype_for_xul.js)
+  chrome/content/js/libnotify.js            (chrome/example-content/js/libnotify.js)
+  chrome/content/js/service.js              (chrome/example-content/js/service.js)
+  chrome/content/js/avahi.js                (chrome/example-content/js/avahi.js)

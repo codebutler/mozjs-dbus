@@ -141,6 +141,8 @@
                         <row>
                             <button label="Send" id="sendNotificationButton" />
                         </row>
+                        
+                        <textbox id="notifyStatusTextBox" readonly="true" multiline="true" flex="1" />
                     </rows>
                 </grid>
             </tabpanel>

@@ -36,14 +36,14 @@ function setupLibNotify ()
     var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
                             NOTIFY_INTERFACE);
 
-    alert(nf.GetCapabilities());
+    var notifyStatusTextBox = document.getElementById('notifyStatusTextBox')
 
     nf.connectToSignal('NotificationClosed', function (id, reason) {
-        alert('Notification Closed! ' + id + ' .. ' + reason);
+        notifyStatusTextBox.value += '\nNotification Closed! ' + id + ' .. ' + reason;
     });
 
     nf.connectToSignal('ActionInvoked', function (id, action_key) {
-        alert('Action Invoked! ' + id + ' .. ' + action_key);
+        notifyStatusTextBox.value += '\nAction Invoked! ' + id + ' .. ' + action_key;
     });
 }
 
