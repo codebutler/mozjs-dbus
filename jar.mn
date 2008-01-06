@@ -1,9 +1,13 @@
 mozjsdbus.jar:
 % resource mozjs_dbus modules/
+% content mozjs-dbus %chrome/content/
 
 mozjsdbus_example.jar:
+% overlay chrome://browser/content/browser.xul chrome://mozjs-dbus-example/content/browserOverlay.xul
 % content mozjs-dbus-example %chrome/content/
-  chrome/content/main.xul                   (chrome/example-content/main.xul)
+  chrome/content/browserOverlay.xul         (chrome/example-content/browserOverlay.xul)
+  chrome/content/examples.xul               (chrome/example-content/examples.xul)
+  chrome/content/js/dbus_examples.js        (chrome/example-content/js/dbus_examples.js)
   chrome/content/js/nm.js                   (chrome/example-content/js/nm.js)
   chrome/content/js/prototype_for_xul.js    (chrome/example-content/js/prototype_for_xul.js)
   chrome/content/js/libnotify.js            (chrome/example-content/js/libnotify.js)

@@ -21,4 +21,4 @@
  *
  */
 
-pref("toolkit.defaultChromeURI", "chrome://mozjs-dbus-example/content/main.xul");
+//pref("toolkit.defaultChromeURI", "chrome://mozjs-dbus-example/content/main.xul");
