@@ -22,6 +22,8 @@
  *
  */
 
+Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
+
 const AVAHI_DBUS_NAME = "org.freedesktop.Avahi";
 const AVAHI_DBUS_INTERFACE_SERVER = AVAHI_DBUS_NAME + ".Server";
 const AVAHI_DBUS_PATH_SERVER = "/";
@@ -87,6 +89,7 @@ function newServiceType(iface, proto, type, domain, flags) {
         protocols[proto].interfaces[iface].domains[domain].types[type] = { services: {}, item: item };
         
         var serviceBrowserPath = server.ServiceBrowserNew(iface, proto, type, domain, DBUS.Uint32(0));
+        alert(serviceBrowserPath);
         var serviceBrowser = bus.getObject(AVAHI_DBUS_NAME, serviceBrowserPath, AVAHI_DBUS_INTERFACE_SERVICE_BROWSER);
 
         allSignalHandlers.push(serviceBrowser.connectToSignal("ItemNew", newService));

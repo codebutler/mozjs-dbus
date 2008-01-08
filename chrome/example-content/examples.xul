@@ -28,11 +28,6 @@
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
     xmlns:html="http://www.w3.org/1999/xhtml">
 
-    <script type="text/javascript">
-        Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
-        Components.utils.import("resource://mozjs_dbus/IPAddress.jsm");
-    </script>
-
     <script type="text/javascript"
             src="chrome://mozjs-dbus-example/content/js/prototype_for_xul.js">
     </script>

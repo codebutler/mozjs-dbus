@@ -1,6 +1,9 @@
 mozjsdbus.jar:
 % resource mozjs_dbus modules/
 % content mozjs-dbus %chrome/content/
+% overlay chrome://browser/content/browser.xul chrome://mozjs-dbus/content/browserOverlay.xul
+  chrome/content/browserOverlay.xul         (chrome/content/browserOverlay.xul)
+  
 
 mozjsdbus_example.jar:
 % overlay chrome://browser/content/browser.xul chrome://mozjs-dbus-example/content/browserOverlay.xul

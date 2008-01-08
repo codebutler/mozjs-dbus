@@ -22,6 +22,8 @@
  *
  */
 
+Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
+
 const NOTIFY_SERVICE     = "org.freedesktop.Notifications";
 const NOTIFY_INTERFACE   = "org.freedesktop.Notifications";
 const NOTIFY_OBJECT_PATH = "/org/freedesktop/Notifications";

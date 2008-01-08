@@ -22,6 +22,8 @@
  *
  */
 
+Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
+
 function setupService () {
     var testObj = new DBusObject();
     var iface = testObj.defineInterface("net.extremeboredom.TestInterface");

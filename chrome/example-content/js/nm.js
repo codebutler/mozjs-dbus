@@ -21,6 +21,9 @@
  *
  */
 
+Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
+Components.utils.import("resource://mozjs_dbus/IPAddress.jsm");
+
 // NetworkManager does not support introspection, so we specify
 // what this interface supports.
 const NM_INTERFACE = {

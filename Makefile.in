@@ -47,8 +47,8 @@ MODULES 	= modules/DBusXMLParser.jsm 	\
 		  modules/Makefile.in		\
 		  modules/ProxyUtils.jsm	\
 		  modules/ArrayConverter.jsm	\
-		  modules/Makefile		\
-		  modules/IPAddress.jsm
+		  modules/IPAddress.jsm		\
+		  modules/FirefoxDBusDaemon.jsm
 
 include $(topsrcdir)/config/rules.mk
 

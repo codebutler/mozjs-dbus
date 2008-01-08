@@ -34,12 +34,13 @@ Cu.import("resource://mozjs_dbus/ArrayConverter.jsm");
 Cu.import("resource://mozjs_dbus/ProxyUtils.jsm");
 
 function DBusObject () {
+    this.interfaces = {};
+
     var introspectInterface = this.defineInterface('org.freedesktop.DBus.Introspectable');
-    var serviceName = this.serviceName;
     var obj = this;
 
     introspectInterface.defineMethod('Introspect', '', 's', function () {
-        var xml = <node name={serviceName}/>;
+        var xml = <node/>;
 
         for (var interfaceName in obj.interfaces) {
             var interfaceXML = <interface name={interfaceName} />;
@@ -95,6 +96,13 @@ function DBusObject () {
 
             xml.appendChild(interfaceXML);
         }
+        
+        var children = this.service.findChildrenNames(this.objectPath);
+        for (var x in children) {
+            var childName = children[x];
+            var childNode = <node name={childName}/>;
+            xml.appendChild(childNode);
+        }
 
         var doctype =
             "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" + 
@@ -106,6 +114,10 @@ function DBusObject () {
 
 DBusObject.prototype = {
     defineInterface: function (name) {
+        if (this.interfaces[name] != null) {
+            throw "An interface by that name has already been defined.";
+        }
+
         var obj = this;
 
         var iface = {};
@@ -144,18 +156,16 @@ DBusObject.prototype = {
     },
 
     methodHandler: function (interfaceName, methodName, args) {
-        var iface = obj.interfaces[interfaceName];
+        var iface = this.interfaces[interfaceName];
         if (iface != null) {
             var methodInfo = iface.methods[methodName];
             if (methodInfo != null) {
-                var result = methodInfo.method.apply(obj, args);
+                var result = methodInfo.method.apply(this, args);
                 return result;
             }
         }
         throw "Method not found";
-    }, 
-
-    interfaces: {}
+    }
 };
 
 var DBUS = {
@@ -196,6 +206,10 @@ function DBusConnection(busName) {
     }
 
     this.busName = busName;
+
+    this.seenNames = [];
+    this.nameAddedHandlers = [];
+    this.nameRemovedHandlers =  [];
 
     var busInterface = this.getObject('org.freedesktop.DBus',
                                       '/org/freedesktop/DBus',
@@ -347,24 +361,61 @@ DBusConnection.prototype = {
 
     disconnectFromSignal: function (signalId) {
         DBUS.core.DisconnectFromSignal(this.busName, signalId); 
-    },
-
-    seenNames: [],
-    nameAddedHandlers: [],
-    nameRemovedHandlers: []
+    }
 };
 
 function DBusService(connection, serviceName) {
     this.connection = connection;
     this.serviceName = serviceName;
+
+    this.objects = {};
 };
 
 DBusService.prototype = {
-    exportObject: function(objectPath, obj) {
+    registerObject: function(objectPath, obj) {
+
+        var handler = function (interfaceName, methodName, args) { 
+            return obj.methodHandler(interfaceName, methodName, args);
+        };
+
         var busName = this.connection.busName;
-        DBUS.core.RegisterObject(busName, objectPath, obj.methodHandler);
+        DBUS.core.RegisterObject(busName, objectPath, handler);
         obj.connection = this.connection;
         obj.objectPath = objectPath;
+        obj.service = this;
+
+        this.objects[objectPath] = obj;
+    },
+
+    unregisterObject: function(objectPath) {
+        // XXX: var busName = this.connection.busName;
+        //      DBUS.core.UnregisterObject(busName, objectPath);
+        delete this.objects[objectPath];
+    },
+
+    findChildrenNames: function (objectPath) {
+        var pathParts = objectPath.split('/');
+
+        var children = [];
+
+        objectLoop:
+        for (var thisPath in this.objects) {
+            var thesePathParts = thisPath.split('/');
+
+            if (thesePathParts.length == pathParts.length+1) {
+                // Compare that every part of the path leading up to the
+                // additional part is identical.
+                for (var x = 0; x < pathParts.length; x++) {
+                    if (pathParts[x] != thesePathParts[x]) {
+                        // No match, skip this one.
+                        continue objectLoop;
+                    }
+                }
+                children.push(thesePathParts[thesePathParts.length-1]);
+            }
+        }
+
+        return children;
     }
 };
 
