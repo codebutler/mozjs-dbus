@@ -93,8 +93,6 @@ filter_func(DBusConnection* connection,
     map<int, SignalCallbackInfo*> handlers;
     map<int, SignalCallbackInfo*>::iterator handlerIter;
 
-    cout << "FILTERFUNC!\n";
-
     if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL) {
         interface = dbus_message_get_interface(message);
         name = dbus_message_get_member(message);
@@ -120,12 +118,8 @@ filter_func(DBusConnection* connection,
         
                 args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
                
-                cout << "About to call handler!\n";
-
                 nsIVariant *result;
                 info->callback->Method(interface, name, args, length, &result);
-
-                cout << "called handler!\n";
             }
         } /* else {
             cout << "DID NOT FIND KEY: " << key << " !!\n";

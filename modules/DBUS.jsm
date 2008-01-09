@@ -386,7 +386,6 @@ function DBusService(connection, serviceName) {
 DBusService.prototype = {
     registerObject: function(objectPath, obj) {
         var handler = function (interfaceName, methodName, args) { 
-            dump('handler!!!!!!!\n');
             return obj.methodHandler(interfaceName, methodName, args);
         };
 
