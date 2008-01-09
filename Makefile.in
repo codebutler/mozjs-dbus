@@ -42,8 +42,7 @@ DIRS		= components modules
 PREF_JS_EXPORTS = $(srcdir)/defaults/preferences/prefs.js
 DIST_FILES	= application.ini install.rdf
 
-MODULES 	= modules/DBusXMLParser.jsm 	\
-		  modules/DBUS.jsm		\
+MODULES 	= modules/DBUS.jsm		\
 		  modules/Makefile.in		\
 		  modules/ProxyUtils.jsm	\
 		  modules/ArrayConverter.jsm	\

@@ -93,6 +93,8 @@ filter_func(DBusConnection* connection,
     map<int, SignalCallbackInfo*> handlers;
     map<int, SignalCallbackInfo*>::iterator handlerIter;
 
+    cout << "FILTERFUNC!\n";
+
     if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL) {
         interface = dbus_message_get_interface(message);
         name = dbus_message_get_member(message);
@@ -118,8 +120,12 @@ filter_func(DBusConnection* connection,
         
                 args = MozJSDBusMarshalling::getVariantArray(&iter, &length);
                
+                cout << "About to call handler!\n";
+
                 nsIVariant *result;
                 info->callback->Method(interface, name, args, length, &result);
+
+                cout << "called handler!\n";
             }
         } /* else {
             cout << "DID NOT FIND KEY: " << key << " !!\n";
@@ -226,8 +232,7 @@ NS_IMETHODIMP MozJSDBusCoreComponent::CallMethod(const nsACString &busName,
             NS_ADDREF(callback);
             return NS_OK;
         } else {
-            // Actually, this means no memory.
-            return NS_ERROR_FAILURE;
+            return NS_ERROR_OUT_OF_MEMORY;
         }
     }
 }
@@ -449,10 +454,33 @@ NS_IMETHODIMP MozJSDBusCoreComponent::RegisterObject(const nsACString &busName,
 
     NS_CStringGetData(objectPath, &cObjectPath);
 
-    dbus_connection_register_object_path(connection, cObjectPath, &vtable, 
-                                         callback);
+    if (!dbus_connection_register_object_path(connection, cObjectPath, &vtable, 
+                                              callback)) {
+        return NS_ERROR_OUT_OF_MEMORY;
+    }
     
     NS_ADDREF(callback);
+
+    return NS_OK;
+}
+
+NS_IMETHODIMP MozJSDBusCoreComponent::UnregisterObject(const nsACString &busName,
+                                                       const nsACString &objectPath)
+{
+    DBusConnection          *connection;
+    const char              *cBusName;
+    const char              *cObjectPath;
+
+    NS_CStringGetData(busName, &cBusName);
+    connection = GetConnection((char*)cBusName);
+
+    NS_CStringGetData(objectPath, &cObjectPath);
+
+    if (!dbus_connection_unregister_object_path(connection, cObjectPath)) {
+        return NS_ERROR_OUT_OF_MEMORY;
+    }
+
+    return NS_OK;
 }
 
 DBusConnection* MozJSDBusCoreComponent::GetConnection(char* busName)

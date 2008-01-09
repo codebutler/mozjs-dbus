@@ -37,7 +37,7 @@ function setupService () {
 
     var bus = DBUS.sessionBus;
     var service = bus.requestService('net.extremeboredom.TestService');
-    service.exportObject('/Test', testObj);
+    service.registerObject('/Test', testObj);
 
     //alert(testObj.interfaces['org.freedesktop.DBus.Introspectable'].methods['Introspect']['method']());
 

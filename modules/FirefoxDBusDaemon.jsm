@@ -76,12 +76,21 @@ var FirefoxDBusDaemon = {
             return result;
         });
 
-        firefoxService.registerObject("/org/mozilla/Firefox", firefoxObject);
+        // D-Bus Signal: WindowOpened
+        firefoxInterface.defineSignal("WindowOpened", "o");
 
+        // D-Bus Signal: WindowClosed
+        firefoxInterface.defineSignal("WindowClosed", "o");
+
+        // Now register the objects...
+        firefoxService.registerObject("/org/mozilla/Firefox", firefoxObject);
         firefoxService.registerObject("/org/mozilla/Firefox/Windows", new DBusObject());
 
-        // Save this around for later
+        // Save these around for later
         this._service = firefoxService;
+        this._firefox = firefoxInterface;
+
+        dump("*** Firefox D-Bus Service Initialized!\n");
     },
 
     windowOpened: function (win) {
@@ -117,11 +126,18 @@ var FirefoxDBusDaemon = {
         dbusWindow._windowId = this._windowCount;
         this._windows[win] = dbusWindow;
 
-        this._service.registerObject(this.getObjectPathForWindow(win), dbusWindow);
+        var objectPath = this.getObjectPathForWindow(win);
+        
+        this._service.registerObject(objectPath, dbusWindow);
+
+        this._firefox.emitSignal("WindowOpened", objectPath);
     },
 
     windowClosed: function (win) {
-        this._service.unregisterObject(this.getObjectPathForWindow(win));
+        var objectPath = this.getObjectPathForWindow(win);
+        this._firefox.emitSignal("WindowClosed", objectPath);
+        this._service.unregisterObject(objectPath);
+
         delete this._windows[win];
     },
 

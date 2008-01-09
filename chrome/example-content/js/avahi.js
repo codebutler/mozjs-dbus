@@ -89,7 +89,6 @@ function newServiceType(iface, proto, type, domain, flags) {
         protocols[proto].interfaces[iface].domains[domain].types[type] = { services: {}, item: item };
         
         var serviceBrowserPath = server.ServiceBrowserNew(iface, proto, type, domain, DBUS.Uint32(0));
-        alert(serviceBrowserPath);
         var serviceBrowser = bus.getObject(AVAHI_DBUS_NAME, serviceBrowserPath, AVAHI_DBUS_INTERFACE_SERVICE_BROWSER);
 
         allSignalHandlers.push(serviceBrowser.connectToSignal("ItemNew", newService));
@@ -169,11 +168,24 @@ function avahiFound() {
     try {
         server = bus.getObject(AVAHI_DBUS_NAME, AVAHI_DBUS_PATH_SERVER, AVAHI_DBUS_INTERFACE_SERVER);
         
-        var nm = bus.getObject("org.freedesktop.NetworkManager",
-                               "/org/freedesktop/NetworkManager",
-                               NM_INTERFACE);
+        var devices;
 
-        var devices = nm.getDevices();
+        try {
+            var nm = bus.getObject("org.freedesktop.NetworkManager",
+                                   "/org/freedesktop/NetworkManager",
+                                   NM_INTERFACE);
+
+            devices = nm.getDevices(); 
+            devices = devices.map(function (deviceObjectPath) {
+                var device = bus.getObject("org.freedesktop.NetworkManager",
+                                            deviceObjectPath, NM_IFACE_INTERFACE);
+                return device.getName();
+            });
+
+        } catch (e) {
+            // NetworkManager not available.
+            devices = [ "eth0" ];
+        }
 
         for (var protocol in AVAHI_PROTOCOLS) {
             var protocolName = AVAHI_PROTOCOLS[protocol];
@@ -183,10 +195,8 @@ function avahiFound() {
             protocols[protocol] = { name: protocolName, interfaces: {} };
 
             for (var x = 0; x < devices.length; x++) {
-                var device = bus.getObject("org.freedesktop.NetworkManager",
-                                           devices[x], NM_IFACE_INTERFACE);
 
-                var interfaceName = device.getName();
+                var interfaceName = devices[x];
                 var interfaceIndex = server.GetNetworkInterfaceIndexByName(interfaceName);
             
                 var item = document.createElement("treeitem");

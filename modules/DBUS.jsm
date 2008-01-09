@@ -29,7 +29,6 @@ const Cu = Components.utils;
 
 EXPORTED_SYMBOLS = ["DBUS", "DBusObject"];
 
-Cu.import("resource://mozjs_dbus/DBusXMLParser.jsm");
 Cu.import("resource://mozjs_dbus/ArrayConverter.jsm");
 Cu.import("resource://mozjs_dbus/ProxyUtils.jsm");
 
@@ -40,11 +39,14 @@ function DBusObject () {
     var obj = this;
 
     introspectInterface.defineMethod('Introspect', '', 's', function () {
+        dump("Introspect !\n");
+
         var xml = <node/>;
 
         for (var interfaceName in obj.interfaces) {
             var interfaceXML = <interface name={interfaceName} />;
 
+            // XXX: Try replacing these with "this.obj."
             var methods = obj.interfaces[interfaceName].methods;
             var signals = obj.interfaces[interfaceName].signals;
 
@@ -59,7 +61,7 @@ function DBusObject () {
                 return str.split(',');
             };
 
-            function appendArgs (element, argNames, signature, direction) {
+            var appendArgs = function (element, argNames, signature, direction) {
                 for (var x = 0; x < signature.length; x++) {
                     var type = signature[x];
                     var argXML;
@@ -76,7 +78,7 @@ function DBusObject () {
                     }
                     element.appendChild(argXML);
                 }
-            }
+            };
 
             for (var methodName in methods) {
                 var methodInfo = methods[methodName];
@@ -118,44 +120,15 @@ DBusObject.prototype = {
             throw "An interface by that name has already been defined.";
         }
 
-        var obj = this;
-
-        var iface = {};
-        iface.name = name;
-        iface.methods = {};
-        iface.signals = {};
-        iface.defineMethod = function (methodName, inSignature, outSignature, func) {
-            var method = {
-                 inSignature: inSignature,
-                outSignature: outSignature, 
-                      method: func
-            };
-            this.methods[methodName] = method;
-        };
-
-        iface.defineSignal = function (signalName, signature) {
-            var signal = {
-                signature: signature
-            };
-            this.signals[signalName] = signal;
-        };
-
-        iface.emitSignal = function (signalName) {
-            var args = Array.prototype.slice.call(arguments, 1);
-            DBUS.core.EmitSignal(obj.connection.busName,
-                                 obj.objectPath,
-                                 iface.name,
-                                 signalName,
-                                 args.length,
-                                 args);
-        };
-
+        var iface = new DBusInterface(this, name);
+        
         this.interfaces[name] = iface;
 
         return iface;
     },
 
     methodHandler: function (interfaceName, methodName, args) {
+        dump("methodHandler\n");
         var iface = this.interfaces[interfaceName];
         if (iface != null) {
             var methodInfo = iface.methods[methodName];
@@ -165,6 +138,45 @@ DBusObject.prototype = {
             }
         }
         throw "Method not found";
+    }
+};
+
+function DBusInterface (obj, name) {
+    this.obj = obj;
+    this.name = name;
+    this.methods = {};
+    this.signals = {};
+}
+
+DBusInterface.prototype = {
+    defineMethod: function (methodName, inSignature, outSignature, func) {
+        var method = {
+             inSignature: inSignature,
+            outSignature: outSignature, 
+                  method: func
+        };
+        this.methods[methodName] = method;
+    },
+
+    defineSignal: function (signalName, signature) {
+        var signal = {
+            signature: signature
+        };
+        this.signals[signalName] = signal;
+    },
+
+    emitSignal: function (signalName) {
+        if (this.signals[signalName] == null) {
+            throw "Unknown signal";
+        }
+
+        var args = Array.prototype.slice.call(arguments, 1);
+        DBUS.core.EmitSignal(this.obj.connection.busName,
+                             this.obj.objectPath,
+                             this.name,
+                             signalName,
+                             args.length,
+                             args);
     }
 };
 
@@ -320,18 +332,17 @@ DBusConnection.prototype = {
             // Nor is <?xml...
             xml = xml.replace(/<\?xml[^\?>]+\?>/, '');
             
-            //dump(xml);
-
             xml = new XML(xml);
 
-            // Parse the xml
-            var interfaces = DBusXMLParser.parse(xml);
-
             // Find the requested interface
-            for (var x = 0; x < interfaces.length; x++) {
-                var i = interfaces[x];
-                if (i.name == iface) {
-                    objectInterface = i;
+            for (var x in xml.interface) {
+                var interfaceElement = xml.interface[x];
+                if (interfaceElement.@name == iface) {
+                    var methodNames = [];
+                    for (var x in interfaceElement.method) {
+                        methodNames.push(interfaceElement.method[x].@name);
+                    }
+                    objectInterface = { name: iface, methods: methodNames };
                     break;
                 }
             }
@@ -341,10 +352,7 @@ DBusConnection.prototype = {
             }
 
         } else {
-            objectInterface = new DBusInterface(iface.name);
-            objectInterface.methods = iface.methods.map(function(methodName) {
-                    return new DBusMethod(methodName);
-            });
+            objectInterface = iface;
         }
 
         var proxy = new DBusProxyObject(this, serviceName, objectPath, objectInterface);
@@ -357,6 +365,10 @@ DBusConnection.prototype = {
         } else {
             throw "Failed to request service.";
         }
+    },
+
+    releaseService: function(service) {
+        throw "Not Implemented Yet";
     },
 
     disconnectFromSignal: function (signalId) {
@@ -373,8 +385,8 @@ function DBusService(connection, serviceName) {
 
 DBusService.prototype = {
     registerObject: function(objectPath, obj) {
-
         var handler = function (interfaceName, methodName, args) { 
+            dump('handler!!!!!!!\n');
             return obj.methodHandler(interfaceName, methodName, args);
         };
 
@@ -388,8 +400,8 @@ DBusService.prototype = {
     },
 
     unregisterObject: function(objectPath) {
-        // XXX: var busName = this.connection.busName;
-        //      DBUS.core.UnregisterObject(busName, objectPath);
+        var busName = this.connection.busName;
+        DBUS.core.UnregisterObject(busName, objectPath);
         delete this.objects[objectPath];
     },
 
@@ -429,7 +441,8 @@ function DBusProxyObject (connection, serviceName, objectPath, objectInterface)
     var proxy = this;
 
     // Create proxy functions for dbus methods
-    objectInterface.methods.forEach(function (method) {
+    for (var x in objectInterface.methods) {
+        var methodName = objectInterface.methods[x];
         var proxyFunction = function () {
             var methodName = arguments.callee.methodName;
             var argArray = Array.prototype.slice.call(arguments);
@@ -446,9 +459,9 @@ function DBusProxyObject (connection, serviceName, objectPath, objectInterface)
             }
             return this.callMethod(methodName, argArray, handler);
         };
-        proxyFunction.methodName = method.name;
-        proxy[method.name] = proxyFunction;
-    });
+        proxyFunction.methodName = methodName;
+        proxy[methodName] = proxyFunction;
+    }
 }
 
 DBusProxyObject.prototype = {

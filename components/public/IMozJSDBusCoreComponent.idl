@@ -71,5 +71,8 @@ interface IMozJSDBusCoreComponent : nsISupports
   void RegisterObject(in ACString busName,
                       in ACString objectPath,
                       in IJSCallback callback);
+
+  void UnregisterObject(in ACString busName,
+                        in ACString objectPath);
 };
 
