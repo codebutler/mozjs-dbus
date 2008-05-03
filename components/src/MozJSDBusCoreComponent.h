@@ -1,3 +1,4 @@
+/* -*- Mode: C++; tab-aWidth: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /* vim:sw=4 sts=4 et
  *
  * MozJSDBusCoreComponent.h:
@@ -22,8 +23,8 @@
  *
  */
 
-#ifndef _MY_COMPONENT_H_
-#define _MY_COMPONENT_H_
+#ifndef _MOZJSDBUSCORECOMPONENT_H_
+#define _MOZJSDBUSCORECOMPONENT_H_
 
 #include "nsCOMPtr.h"
 #include "nsIVariant.h"
@@ -36,11 +37,24 @@
 #include <string>
 using namespace std;
 
-#define MY_COMPONENT_CONTRACTID "@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"
+#define MY_COMPONENT_CONTRACTID \
+    "@extremeboredom.net/mozjs_dbus/MozJSDBusCoreComponent;1"
 #define MY_COMPONENT_CLASSNAME "A Simple XPCOM Sample"
-#define MY_COMPONENT_CID  { 0x597a60b0, 0x5272, 0x4284, { 0x90, 0xf6, 0xe9, 0x6c, 0x24, 0x2d, 0x74, 0x6 } }
+#define MY_COMPONENT_CID                             \
+{ /* ae7d8adc-e081-4c6b-8b25-e233ba4872b5*/          \
+    0xae7d8adc,                                      \
+    0xe081,                                          \
+    0x4c6b,                                          \
+    {0x8b, 0x25, 0xe2, 0x33, 0xba, 0x48, 0x72, 0xb5} \
+}
 
-static bool checkDBusError(DBusError error);
+/* Utility macro to wrap calls to libdbus and check for OOM conditions */
+#define MOZJSDBUS_CALL_OOMCHECK(_exp)      \
+    PR_BEGIN_MACRO                         \
+        if (!(_exp)) {                     \
+            return NS_ERROR_OUT_OF_MEMORY; \
+        }                                  \
+    PR_END_MACRO
 
 typedef struct
 {
@@ -54,17 +68,20 @@ class MozJSDBusCoreComponent : public IMozJSDBusCoreComponent
 public:
     NS_DECL_ISUPPORTS
     NS_DECL_IMOZJSDBUSCORECOMPONENT
-
+      
     MozJSDBusCoreComponent();
-    virtual ~MozJSDBusCoreComponent();
+
+    nsresult Init();
 
     std::map<string, std::map<int, SignalCallbackInfo*> > signalCallbacks;
     
 private:
-    DBusConnection *systemConnection;
-    DBusConnection *sessionConnection;
+    ~MozJSDBusCoreComponent();
 
-    DBusConnection* GetConnection(char* busName);
+    DBusConnection *mSystemBusConnection;
+    DBusConnection *mSessionBusConnection;
+
+    DBusConnection* GetConnection(const PRUint16 aBusType);
 };
 
-#endif //_MY_COMPONENT_H_
+#endif //_MOZJSDBUSCORECOMPONENT_H_

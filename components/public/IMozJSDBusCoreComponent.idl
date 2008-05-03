@@ -24,7 +24,7 @@
 #include "nsISupports.idl"
 #include "nsIPropertyBag.idl"
 
-[function, scriptable, uuid(efc733cd-6288-45af-a12c-51cc064fadeb)]
+[function, scriptable, uuid(7287d9ec-1a4b-40c5-9e6e-2a79dde63f60)]
 interface IJSCallback : nsISupports
 {
   nsIVariant method(in string interfaceName,
@@ -34,45 +34,48 @@ interface IJSCallback : nsISupports
                     in unsigned long argsLength);
 };
 
-[scriptable, uuid(90758a97-a6f3-4ea4-8953-16bd2ee3a977)]
+[scriptable, uuid(38a1b10b-e4ff-4cb3-b389-c11d00ddacc3)]
 interface IMozJSDBusCoreComponent : nsISupports
 {
-  nsIVariant CallMethod(in ACString busName,
-                        in ACString serviceName,
-                        in ACString objectPath,
-                        in ACString interfaceName,
-                        in ACString methodName,
-                        in unsigned long argsLength,
-                        [array, size_is(argsLength)]
-                        in nsIVariant args,
-                        in IJSCallback callback);
+  const PRUint16 SYSTEM_BUS  = 1;
+  const PRUint16 SESSION_BUS = 2;
 
-  void EmitSignal(in ACString busName,
-                  in ACString objectPath,
-                  in ACString interfaceName,
-                  in ACString signalName,
-                  in unsigned long argsLength,
-                  [array, size_is(argsLength)]
-                  in nsIVariant args);
+  nsIVariant CallMethod(in PRUint16 aBusType,
+                        in AUTF8String aServiceName,
+                        in AUTF8String aObjectPath,
+                        in AUTF8String aInterfaceName,
+                        in AUTF8String aMethodName,
+                        in unsigned long aArgsLength,
+                        [array, size_is(aArgsLength)]
+                        in nsIVariant aArgs,
+                        in IJSCallback aCallback);
 
-  unsigned long ConnectToSignal(in ACString busName,
-                                in ACString serviceName,
-                                in ACString objectPath,
-                                in ACString interfaceName,
-                                in ACString signalName,
-                                in IJSCallback callback);
+  void EmitSignal(in PRUint16 aBusType,
+                  in AUTF8String aObjectPath,
+                  in AUTF8String aInterfaceName,
+                  in AUTF8String aSignalName,
+                  in unsigned long aArgsLength,
+                  [array, size_is(aArgsLength)]
+                  in nsIVariant aArgs);
 
-  void DisconnectFromSignal(in ACString busName,
-                            in unsigned long id);
+  unsigned long ConnectToSignal(in PRUint16 aBusType,
+                                in AUTF8String aServiceName,
+                                in AUTF8String aObjectPath,
+                                in AUTF8String aInterfaceName,
+                                in AUTF8String aSignalName,
+                                in IJSCallback aCallback);
 
-  boolean RequestService(in ACString busName,
-                         in ACString serviceName);
+  void DisconnectFromSignal(in PRUint16 aBusType,
+                            in unsigned long aId);
+
+  boolean RequestService(in PRUint16 aBusType,
+                         in AUTF8String aServiceName);
   
-  void RegisterObject(in ACString busName,
-                      in ACString objectPath,
-                      in IJSCallback callback);
+  void RegisterObject(in PRUint16 aBusType,
+                      in AUTF8String aObjectPath,
+                      in IJSCallback aCallback);
 
-  void UnregisterObject(in ACString busName,
-                        in ACString objectPath);
+  void UnregisterObject(in PRUint16 aBusType,
+                        in AUTF8String aObjectPath);
 };
 

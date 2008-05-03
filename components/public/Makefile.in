@@ -9,6 +9,8 @@ include $(DEPTH)/config/autoconf.mk
 MODULE		= mozjs_dbus
 XPI_NAME	= mozjs_dbus
 
-XPIDLSRCS	= IMozJSDBusCoreComponent.idl
+XPIDLSRCS	= \
+                IMozJSDBusCoreComponent.idl \
+                $(NULL)
 
 include $(topsrcdir)/config/rules.mk

@@ -55,6 +55,9 @@ function sendNotification ()
     var nf  = bus.getObject(NOTIFY_SERVICE, NOTIFY_OBJECT_PATH,
                             NOTIFY_INTERFACE);
 
+    var hints = {category:"device-error"};
+    hints["suppress-sound"] = true;
+
     var summary = document.getElementById("summaryText").value;
     var body    = document.getElementById("bodyText").value;
     
@@ -64,10 +67,7 @@ function sendNotification ()
                        summary,                             // summary
                        body,                                // body
                        [ "ok", "OK", "cancel", "Cancel" ],  // actions
-                       {                                    // hints
-                             urgency: 2,                    // ..
-                            category: "device.error"        // ..
-                       },                                   // ..
+                       hints,                               // hints
                        30000);                              // expire_timeout
 }
 

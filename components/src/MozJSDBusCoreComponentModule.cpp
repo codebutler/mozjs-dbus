@@ -1,9 +1,10 @@
 #include "nsIGenericFactory.h"
+#include "nsIModule.h"
 #include "MozJSDBusCoreComponent.h"
 
-NS_GENERIC_FACTORY_CONSTRUCTOR(MozJSDBusCoreComponent)
+NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(MozJSDBusCoreComponent, Init)
 
-static nsModuleComponentInfo components[] =
+static const nsModuleComponentInfo components[] =
 {
     {
        MY_COMPONENT_CLASSNAME, 
@@ -13,5 +14,5 @@ static nsModuleComponentInfo components[] =
     }
 };
 
-NS_IMPL_NSGETMODULE("MozJSDBusCoreComponentModule", components) 
+NS_IMPL_NSGETMODULE(MozJSDBusCoreComponentModule, components) 
 

@@ -52,6 +52,9 @@
 
 #include <dbus/dbus.h>
 
+#include "nsServiceManagerUtils.h"
+#include "jsapi.h"
+
 #include <prlog.h>
 #include <prclist.h>
 #ifdef DEBUG
@@ -78,6 +81,11 @@ private:
     static nsCOMPtr<nsIWritableVariant> unMarshallIter(int type, DBusMessageIter *iter);
     static nsCOMPtr<nsIWritableVariant> unMarshallBasic(int type, DBusMessageIter *iter);
     static nsCOMPtr<nsIWritableVariant> unMarshallArray(int type, DBusMessageIter *iter);
+
+    static PRBool JSObjectHasVariantValues(JSContext* cx, JSObject* aObj);
+    static nsresult marshallJSObject(JSContext* cx, JSObject* aObj, DBusMessageIter* iter);
+    static nsresult marshallJSProperty(JSContext* cx, JSObject* aObj, jsval& propval, DBusMessageIter* iter, const PRBool& isVariant);
+    
 
     static const int getDataTypeSize(PRUint16);
     static const int getDataTypeAsDBusType(PRUint16);

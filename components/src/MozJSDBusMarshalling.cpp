@@ -1,3 +1,4 @@
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim:sw=4 sts=4 et
  *
  * MozJSDBusMarshalling.cpp: Convert XPCOM data to/from DBUS data.
@@ -76,11 +77,12 @@ MozJSDBusMarshalling::appendArgs(DBusMessage      *message,
         // DBUS.UInt32(), etc.
         if (dataType == nsIDataType::VTYPE_INTERFACE_IS) {
             nsISupports *blah;
-            arg->GetAsISupports(&blah);
+            rv = arg->GetAsISupports(&blah);
+            NS_ENSURE_SUCCESS(rv, rv);
 
             nsIVariant *subVariant;
-            rv = blah->QueryInterface(NS_GET_IID(nsIVariant), (void**)&subVariant);
-
+            rv = blah->QueryInterface(NS_GET_IID(nsIVariant),
+                                      (void**)&subVariant);
             if (!NS_FAILED(rv)) {
                 arg = subVariant;
             }
@@ -94,12 +96,12 @@ MozJSDBusMarshalling::appendArgs(DBusMessage      *message,
 }
 
 nsIVariant**
-MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter, PRUint32 *retLength)
+MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter,
+                                      PRUint32 *retLength)
 {
     nsCOMPtr<nsIMutableArray>       arrayItems;
     nsCOMPtr<nsIWritableVariant>    variant;
     int                             current_type;
-    nsresult                        rv;
     nsIVariant**                    variants;
     PRUint32                        length;
     nsCOMPtr<nsIVariant>            item;
@@ -107,8 +109,8 @@ MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter, PRUint32 *retLength
     arrayItems = do_CreateInstance("@mozilla.org/array;1");
 
     while ((current_type = dbus_message_iter_get_arg_type (iter))
-            != DBUS_TYPE_INVALID) {
-    
+            != DBUS_TYPE_INVALID)
+    {
         variant = unMarshallIter(current_type, iter);
         
         if (variant != NULL) {
@@ -178,10 +180,10 @@ MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
     switch(type) {
         case DBUS_TYPE_BYTE: 
         {
-           char val;
-           dbus_message_iter_get_basic(iter, &val);
-           variant->SetAsChar(val);
-           break;
+            char val; //PRUint8?
+            dbus_message_iter_get_basic(iter, &val);
+            variant->SetAsChar(val);
+            break;
         }
         case DBUS_TYPE_BOOLEAN: 
         {
@@ -261,7 +263,6 @@ nsCOMPtr<nsIWritableVariant>
 MozJSDBusMarshalling::unMarshallArray(int type, DBusMessageIter *iter)
 {
     DBusMessageIter                 subiter;
-    int                             current_subtype;
     nsresult                        rv;
     nsCOMPtr<nsIWritableVariant>    variant;
     nsCOMPtr<nsIMutableArray>       arrayItems;
@@ -320,18 +321,16 @@ MozJSDBusMarshalling::getDBusTypeAsSignature(int type)
     return _ret;
 }
 
-#define MARSHALL_CASE(type, name) \
-    case nsIDataType::VTYPE_##type: { \
-        PR##name val; \
-        nv = param->GetAs##name(&val); \
-        if (NS_FAILED(nv)) { \
-            return nv; \
-        } \
+#define MARSHALL_CASE(type, name)               \
+    case nsIDataType::VTYPE_##type: {           \
+        PR##name val;                           \
+        nv = param->GetAs##name(&val);          \
+        NS_ENSURE_SUCCESS(nv, nv);              \
         if (!dbus_message_iter_append_basic(it, \
-            DBUS_TYPE_##type, &val)) { \
-            return NS_ERROR_OUT_OF_MEMORY; \
-        } \
-        break; \
+            DBUS_TYPE_##type, &val)) {          \
+            return NS_ERROR_OUT_OF_MEMORY;      \
+        }                                       \
+        break;                                  \
     }
 
 nsresult
@@ -343,76 +342,57 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
     nsresult nv;
     nsresult rv;
 
+    printf("marshallVariant\n");
+
     param->GetDataType(&type);
     switch (type) {
-        case nsIDataType::VTYPE_INT8: { // FIXME : better check
-            PRUint8 val;
-            param->GetAsInt8(&val);
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_INT16, &val)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
-            break;
-        } 
+        /* Let INT8 fall through to INT16 - GetAsInt16 converts cleanly
+           with implicit type conversion. DBUS doesn't have an 8-bit signed
+           int type, so it will be marshalled as a 16-bit signed int.
+         */
+        case nsIDataType::VTYPE_INT8:
         MARSHALL_CASE(INT16, Int16)
         MARSHALL_CASE(INT32, Int32)
         MARSHALL_CASE(INT64, Int64)
-        case nsIDataType::VTYPE_UINT8: { // FIXME : better check
+        case nsIDataType::VTYPE_UINT8:
             PRUint8 val;
             nv = param->GetAsUint8(&val);
-            if (NS_FAILED(nv)) {
-                return nv;
-            }
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_INT16, &val)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
+            NS_ENSURE_SUCCESS(nv, nv);
+
+            MOZJSDBUS_CALL_OOMCHECK(
+                dbus_message_iter_append_basic(it,
+                                               DBUS_TYPE_BYTE,
+                                               &val));
             break;
-        }
         MARSHALL_CASE(UINT16, Uint16)
         MARSHALL_CASE(UINT32, Uint32)
         MARSHALL_CASE(UINT64, Uint64)
-
-        case nsIDataType::VTYPE_FLOAT: { // TODO: check precision
-            float val;
-            nv = param->GetAsFloat(&val);
-            if (NS_FAILED(nv)) {
-                return nv;
-            }
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_DOUBLE, &val)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
-            break;
-        }
+        case nsIDataType::VTYPE_FLOAT:
         case nsIDataType::VTYPE_DOUBLE: {
+            /* GetAsDouble for a VTYPE_FLOAT uses C++ implicit type
+               conversion for the underlying float value, which is
+               promotion from a lower-precision to a higher-precision 
+               type, so this *should* be OK.
+             */
             double val;
             nv = param->GetAsDouble(&val);
-            if (NS_FAILED(nv)) {
-                return nv;
-            }
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_DOUBLE, &val)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
+            NS_ENSURE_SUCCESS(nv, nv);
+            
+            MOZJSDBUS_CALL_OOMCHECK(
+                dbus_message_iter_append_basic(it,
+                                               DBUS_TYPE_DOUBLE,
+                                               &val));
             break;
         }
         case nsIDataType::VTYPE_BOOL: {
             PRBool val;
             nv = param->GetAsBool(&val);
-            if (NS_FAILED(nv)) {
-                return nv;
-            }
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_BOOLEAN, &val)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
-            break;
-        }
-        case nsIDataType::VTYPE_CHAR: {
-            break;
-        }
-        case nsIDataType::VTYPE_WCHAR: {
+            NS_ENSURE_SUCCESS(nv, nv);
+            
+            MOZJSDBUS_CALL_OOMCHECK(
+                dbus_message_iter_append_basic(it,
+                                               DBUS_TYPE_BOOLEAN,
+                                               &val));
             break;
         }
         case nsIDataType::VTYPE_VOID: {
@@ -421,51 +401,54 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
         case nsIDataType::VTYPE_ID: {
             break;
         }
-        case nsIDataType::VTYPE_DOMSTRING: {
-            break;
-        }
-        case nsIDataType::VTYPE_CHAR_STR: {
-            break;
-        }
-        case nsIDataType::VTYPE_WCHAR_STR: {
-            break;
-        }
         case nsIDataType::VTYPE_INTERFACE: {
             break;
         }
         case nsIDataType::VTYPE_INTERFACE_IS: { 
             // XXX: Create a DICT_ENTRY array
             // XXX: User may want a STRUCT instead?
-
             nsIID *iid;
             nsISupports *interface;
-            nsresult ns;
 
             nv = param->GetAsInterface(&iid, (void **) &interface);
-            if(NS_FAILED(nv)) {
-                return NS_ERROR_FAILURE;
-            }
-    
-            PRUint32 count;
-            nsIID **array;
+            NS_ENSURE_SUCCESS(nv, nv);
 
-            nsCOMPtr<nsIXPConnectWrappedJS> wrapped = do_QueryInterface(interface);
+            nsCOMPtr<nsIXPConnectWrappedJS> wrapped =
+                do_QueryInterface(interface);
 
             if (wrapped != NULL) {
                 printf ("Info was something !!\n");
-                
+
+                nsCOMPtr<nsIXPConnect> xpc(do_GetService(nsIXPConnect::GetCID(),
+                                                         &rv));
+                NS_ENSURE_SUCCESS(rv, rv);
+
+                nsAXPCNativeCallContext* ncc = nsnull;
+                rv = xpc->GetCurrentNativeCallContext(&ncc);
+                NS_ENSURE_SUCCESS(rv, rv);
+
+                JSContext* cx = nsnull;
+                rv = ncc->GetJSContext(&cx);
+                NS_ENSURE_SUCCESS(rv, rv);
+
+                {
+                JSAutoRequest ar(cx);
+
                 JSObject* jsObject;
                 rv = wrapped->GetJSObject(&jsObject);
                 NS_ENSURE_SUCCESS(rv, rv);
-                
+                 
+                rv = marshallJSObject(cx, jsObject, it);
+                NS_ENSURE_SUCCESS(rv, rv);
+                } //for the autorequest
             } else {
                 printf ("Info was null !!\n");
             }
 
-
-            DBusMessageIter sub;
-            dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY, "{sv}", &sub);
-            dbus_message_iter_close_container(it, &sub);
+            /*DBusMessageIter sub;
+            dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY,
+                                             "{sv}", &sub);
+                                             dbus_message_iter_close_container(it, &sub);*/
             
             //printf("IID %s\n", iid.ToString()); 
             break;
@@ -478,9 +461,7 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             void *data;
 
             nv = param->GetAsArray(&type , &iid , &count , &data);
-            if (NS_FAILED(nv)) {
-                return nv;
-            }
+            NS_ENSURE_SUCCESS(nv, nv);
 
             // if type == VTYPE_INTERFACE_IS, it's an mixed array
             // all D-BUS array elements must be the same, 
@@ -493,15 +474,15 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
                 nsIVariant *ptr = *((nsIVariant**)data);
 
                 dbus_message_iter_open_container(it, DBUS_TYPE_STRUCT, 
-                        NULL, &sub);
-                
+                                                 NULL, &sub);
+
                 for (PRUint32 i = 0; i < count; i++, 
-                    ptr = *((nsIVariant**)data + i)) {
+                     ptr = *((nsIVariant**)data + i))
+                {
                     nv = marshallVariant(msg, ptr, &sub);
-                    if (NS_FAILED(nv))
-                        return nv;
+                    NS_ENSURE_SUCCESS(nv, nv);
                 }
-                
+
                 dbus_message_iter_close_container(it, &sub);
                 break;
             }
@@ -511,10 +492,9 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             const char* sign = getDBusTypeAsSignature(dbus_type);
             unsigned char *ptr;
             PRUnichar* c_ptr;
-            unsigned char *c_value;
 
             dbus_message_iter_open_container(it, 
-                    DBUS_TYPE_ARRAY, sign, &sub);
+                                             DBUS_TYPE_ARRAY, sign, &sub);
 
             if (type == nsIDataType::VTYPE_WCHAR_STR) {
                 c_ptr = *((PRUnichar**)data);
@@ -523,20 +503,22 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             }
 
             for (PRUint32 i = 0; i < count; i++) {
-
                 if (type == nsIDataType::VTYPE_WCHAR_STR) {
-                    c_value = (unsigned char *) 
-                        NS_ConvertUTF16toUTF8(c_ptr).get();
-                    if (!dbus_message_iter_append_basic(&sub, 
-                        dbus_type, &c_value)) { 
-                        return NS_ERROR_OUT_OF_MEMORY;
-                    }
+                    nsCAutoString utf8 = PromiseFlatCString(
+                                             NS_ConvertUTF16toUTF8(
+                                                 nsDependentString(c_ptr)));
+                    const char* buf = utf8.get();
+
+                    MOZJSDBUS_CALL_OOMCHECK(
+                        dbus_message_iter_append_basic(&sub, 
+                                                       dbus_type, 
+                                                       &buf));
                     c_ptr = *((PRUnichar**)data + i + 1);
                 } else {
-                    if (!dbus_message_iter_append_basic(&sub, 
-                        dbus_type, ptr)) { 
-                        return NS_ERROR_OUT_OF_MEMORY;
-                    }
+                    MOZJSDBUS_CALL_OOMCHECK(
+                        dbus_message_iter_append_basic(&sub, 
+                                                       dbus_type,
+                                                       ptr));
                     ptr += data_type_size;  
                 }
             }
@@ -544,44 +526,43 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             dbus_message_iter_close_container(it, &sub);
             break;
         }
+        case nsIDataType::VTYPE_CHAR:
+        case nsIDataType::VTYPE_CHAR_STR:
+        case nsIDataType::VTYPE_CSTRING:
         case nsIDataType::VTYPE_STRING_SIZE_IS: {
-            PRUint32 size;
-            char *str;
-            param->GetAsStringWithSize(&size , &str);
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_STRING, &str)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
-            break;
-        }
-        case nsIDataType::VTYPE_WSTRING_SIZE_IS: {
+            /* All based on single-width character buffers. */
+            char *cstr;
+            nv = param->GetAsString(&cstr); //Hmm, guaranteed null-term?
+            NS_ENSURE_SUCCESS(nv, nv);
         
-        PRUnichar *str;
-        PRUint32 size;
-        param->GetAsWStringWithSize(&size, &str);
-
-        // XXX: Obviously, we want to use UTF8 here, not ASCII,
-        // however I cannot get this to work. I think the problem is
-        // related to this library being compiled with -fshort-wchar,
-        // and the dbus library being compiled without it.
-        nsCAutoString ascii_str =
-        NS_LossyConvertUTF16toASCII(str, size);
-
-        const char *c_str = ascii_str.get();
-
-            if (!dbus_message_iter_append_basic(it, 
-                        DBUS_TYPE_STRING, &c_str)) { 
-                return NS_ERROR_OUT_OF_MEMORY;
-            } 
+            MOZJSDBUS_CALL_OOMCHECK(
+                dbus_message_iter_append_basic(it, 
+                                               DBUS_TYPE_STRING, 
+                                               &cstr));
             break;
         }
-        case nsIDataType::VTYPE_UTF8STRING: {
-            break;
-        }
-        case nsIDataType::VTYPE_CSTRING: {
-            break;
-        }
-        case nsIDataType::VTYPE_ASTRING: {
+        case nsIDataType::VTYPE_ASTRING:
+        case nsIDataType::VTYPE_DOMSTRING:
+        case nsIDataType::VTYPE_UTF8STRING:
+        case nsIDataType::VTYPE_WCHAR:
+        case nsIDataType::VTYPE_WCHAR_STR:
+        case nsIDataType::VTYPE_WSTRING_SIZE_IS: {
+            /* For VTYPE_UTF8STRING this actually involves conversion
+               to UTF-16 in the GetAsAString() call and then again
+               back to UTF-8. I doubt the performance suffers much.
+            */
+            nsAutoString utf16str;
+            nv = param->GetAsAString(utf16str);
+            NS_ENSURE_SUCCESS(nv, nv);
+
+            nsCAutoString utf8str = PromiseFlatCString(
+                                        NS_ConvertUTF16toUTF8(utf16str));
+            const char *utf8strbuf = utf8str.get();
+
+            MOZJSDBUS_CALL_OOMCHECK(
+                dbus_message_iter_append_basic(it, 
+                                               DBUS_TYPE_STRING, 
+                                               &utf8strbuf));
             break;
         }
         case nsIDataType::VTYPE_EMPTY_ARRAY: {
@@ -590,12 +571,12 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             // XXX: We cant just always assume its an interger array!!
 
             dbus_message_iter_open_container(it, 
-                    DBUS_TYPE_ARRAY, "i", &sub);
+                                             DBUS_TYPE_ARRAY, "i", &sub);
             dbus_message_iter_close_container(it, &sub);
             break;
         }
         case nsIDataType::VTYPE_EMPTY: {
-        printf("AAAHH!!!\n");
+            printf("AAAHH!!!\n");
             break;
         }
         default:
@@ -606,6 +587,197 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
 
     return NS_OK;
 }
+
+
+PRBool
+MozJSDBusMarshalling::JSObjectHasVariantValues(JSContext* cx,
+                                               JSObject* aObj)
+{
+    //Always use "a{sv}" as the signature for now
+    return PR_TRUE;
+}
+
+nsresult
+MozJSDBusMarshalling::marshallJSObject(JSContext* cx,
+                                       JSObject*  aObj,
+                                       DBusMessageIter* iter)
+{
+    DBusMessageIter container_iter;
+    nsresult rv;
+
+    PRBool hasVariantValues = JSObjectHasVariantValues(cx, aObj);
+
+    MOZJSDBUS_CALL_OOMCHECK(
+        dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY,
+                                         DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+                                         DBUS_TYPE_STRING_AS_STRING
+                                         DBUS_TYPE_VARIANT_AS_STRING
+                                         DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+                                         &container_iter));
+
+    JSObject* js_iter = JS_NewPropertyIterator(cx, aObj);
+    jsid propid;
+    if (!JS_NextProperty(cx, js_iter, &propid)) {
+        return NS_ERROR_FAILURE;
+    }
+
+    while (propid != JSVAL_VOID) {
+        jsval propval;
+        if (!JS_IdToValue(cx, propid, &propval))
+            return NS_ERROR_FAILURE;
+
+        rv = marshallJSProperty(cx, aObj, propval, &container_iter, 
+                                hasVariantValues);
+        NS_ENSURE_SUCCESS(rv, rv);
+
+        if (!JS_NextProperty(cx, js_iter, &propid)) {
+            return NS_ERROR_FAILURE;
+        }
+    }
+
+    dbus_message_iter_close_container(iter, &container_iter);
+    printf("marshalled object\n");
+    return NS_OK;
+}
+
+nsresult
+MozJSDBusMarshalling::marshallJSProperty(JSContext* cx,
+                                         JSObject* aObj,
+                                         jsval& propval,
+                                         DBusMessageIter* iter,
+                                         const PRBool& isVariant)
+{
+    DBusMessageIter dictentry_iter;
+    DBusMessageIter variant_iter;
+    printf("marshalljsproperty\n");
+    JSString* propname = JS_ValueToString(cx, propval);
+    JS_GetUCProperty(cx, aObj, JS_GetStringChars(propname),
+                     JS_GetStringLength(propname), &propval);
+
+    MOZJSDBUS_CALL_OOMCHECK(
+        dbus_message_iter_open_container(iter, DBUS_TYPE_DICT_ENTRY,
+                                         NULL, &dictentry_iter));
+
+    nsDependentString propdepstring(JS_GetStringChars(propname),
+                                    JS_GetStringLength(propname));
+    nsCAutoString propstring = 
+        PromiseFlatCString(NS_ConvertUTF16toUTF8(propdepstring));
+
+    const char* propstringbuf = propstring.get();
+    printf("* PROPERTY: %s\n", propstringbuf);
+
+    MOZJSDBUS_CALL_OOMCHECK(
+        dbus_message_iter_append_basic(&dictentry_iter,
+                                       DBUS_TYPE_STRING,
+                                       &propstringbuf));
+
+    JSType type = JS_TypeOfValue(cx, propval);
+    switch (type) {
+        case JSTYPE_NUMBER:
+        {
+            /*Impossible to tell what DBus type JSTYPE_NUMBER
+              corresponds to. Assume INT32 for now.
+             */
+            PRInt32 intVal;
+            JS_ValueToInt32(cx, propval, &intVal);
+            printf("  VALUE: %d\n", intVal);
+            if (isVariant) {
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_open_container(
+                        &dictentry_iter, 
+                        DBUS_TYPE_VARIANT,
+                        DBUS_TYPE_INT32_AS_STRING,
+                        &variant_iter));
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(&variant_iter,
+                                                   DBUS_TYPE_INT32,
+                                                   &intVal));
+                dbus_message_iter_close_container(&dictentry_iter,
+                                                  &variant_iter);
+            } else {
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(&dictentry_iter,
+                                                   DBUS_TYPE_INT32,
+                                                   &intVal));
+            }
+            break;
+        }
+        case JSTYPE_FUNCTION:
+        case JSTYPE_STRING:
+        {
+            //Treat functions as strings for now.
+            JSString* propvaljsstring = JS_ValueToString(cx, propval);
+            nsDependentString propvaldepstring(
+                JS_GetStringChars(propvaljsstring),
+                JS_GetStringLength(propvaljsstring));
+            nsCAutoString propvalstring = 
+                PromiseFlatCString(NS_ConvertUTF16toUTF8(propvaldepstring));
+
+            const char* propvalstringbuf = propvalstring.get();
+            printf("  VALUE: %s\n", propvalstringbuf);
+            if (isVariant) {
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_open_container(
+                        &dictentry_iter, 
+                        DBUS_TYPE_VARIANT,
+                        DBUS_TYPE_STRING_AS_STRING,
+                        &variant_iter));
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(&variant_iter,
+                                                   DBUS_TYPE_STRING,
+                                                   &propvalstringbuf));
+                dbus_message_iter_close_container(&dictentry_iter,
+                                                  &variant_iter);
+            } else {
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(&dictentry_iter,
+                                                   DBUS_TYPE_STRING,
+                                                   &propvalstringbuf));
+            }
+            break;
+        }
+        case JSTYPE_BOOLEAN:
+        {
+            JSBool propbool;
+            JS_ValueToBoolean(cx, propval, &propbool);
+            printf("  VALUE: %s\n", propbool ? "true" : "false");
+            if (isVariant) {
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_open_container(
+                        &dictentry_iter, 
+                        DBUS_TYPE_VARIANT,
+                        DBUS_TYPE_BOOLEAN_AS_STRING,
+                        &variant_iter));
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(&variant_iter,
+                                                   DBUS_TYPE_BOOLEAN,
+                                                   &propbool));
+                dbus_message_iter_close_container(&dictentry_iter,
+                                                  &variant_iter);
+            } else {
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(&dictentry_iter,
+                                                   DBUS_TYPE_BOOLEAN,
+                                                   &propbool));
+            }
+            break;
+        }
+        case JSTYPE_OBJECT:
+        {
+            /*JSObject* childObject;
+            JS_ValueToObject(cx, propval, &childObject);
+            nsresult rv = marshallJSObject(cx, childObject, &dictentry_iter);
+            NS_ENSURE_SUCCESS(rv, rv);
+            break;*/
+        }
+        case JSTYPE_VOID:
+        default:
+            return NS_ERROR_FAILURE;
+    }
+    dbus_message_iter_close_container(iter, &dictentry_iter);
+    return NS_OK;
+}
+
 
 #define CASE_DATA_TYPE_SIZE(name, type) \
     case nsIDataType::VTYPE_##name: \
@@ -673,4 +845,3 @@ MozJSDBusMarshalling::getDataTypeAsDBusType(PRUint16 type)
     }
     return _ret;
 }
-

@@ -1,3 +1,4 @@
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim:sw=4 sts=4 et ft=javascript
  *
  * DBUS.jsm: 
@@ -217,7 +218,11 @@ function DBusConnection(busName) {
         throw "Invalid bus name";
     }
 
-    this.busName = busName;
+    /* It ain't pretty... */
+    if (busName == "system")
+        this.busName = Ci.IMozJSDBusCoreComponent.SYSTEM_BUS;
+    if (busName == "session")
+        this.busName = Ci.IMozJSDBusCoreComponent.SESSION_BUS;
 
     this.seenNames = [];
     this.nameAddedHandlers = [];
