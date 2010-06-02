@@ -1,12 +1,21 @@
-syntax: glob
+Makefile
+Makefile.in
 *.swp
 *.swo
-*.swn
-*.pp
-*.o
+aclocal.m4
+autom4te.cache/
+intltool-*
+config.log
+config.status
+configure
+mkinstalldirs
 *~
-components/public/_xpidlgen/
-components/src/*.so
+config.guess*
+config.sub*
+install-sh
+missing
+stamp-*
 
-syntax: regexp
-Makefile$
+build/
+xpi/components
+src/IMozJSDBusCoreComponent.h
