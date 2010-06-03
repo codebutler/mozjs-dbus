@@ -175,18 +175,19 @@ function avahiFound() {
                                    "/org/freedesktop/NetworkManager",
                                    NM_INTERFACE);
 
-            devices = nm.getDevices(); 
+            devices = nm.GetDevices(); 
             devices = devices.map(function (deviceObjectPath) {
-                var device = bus.getObject("org.freedesktop.NetworkManager",
-                                            deviceObjectPath, NM_IFACE_INTERFACE);
-                return device.getName();
+                var deviceProperties = bus.getObject("org.freedesktop.NetworkManager",
+                                                     deviceObjectPath, "org.freedesktop.DBus.Properties");
+                var name = deviceProperties.Get("org.freedesktop.NetworkManager.Device", "Interface")[0];
+                return name;
             });
 
         } catch (e) {
             // NetworkManager not available.
             devices = [ "eth0" ];
         }
-
+    
         for (var protocol in AVAHI_PROTOCOLS) {
             var protocolName = AVAHI_PROTOCOLS[protocol];
 
