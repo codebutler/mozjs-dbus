@@ -61,18 +61,16 @@
             window.setInterval(function () {
                 dump("Idle: " + screenSaver.GetSessionIdle() + " " + screenSaver.GetSessionIdleTime() + "\n");
             }, 500);
-            */
-            /*
+
             screenSaver.connectToSignal("SessionIdleChanged", function (isIdle) {
                 dump("Idle is: " + isIdle + "\n");
             });
-            */
 
             var bus = DBUS.sessionBus;
             bus.addNameAddedHandler('org.gnome.Banshee', function () {
                 alert('got banshee!');
             });
-            
+            */
         };       
         window.addEventListener("load", onLoad, true);
 
@@ -110,10 +108,6 @@
                         <row>
                             <label value="IP Address:" />
                             <label id="nmIPAddress" />
-                        </row>
-                        <row>
-                            <label value="ESSID:" />
-                            <label id="nmESSID" />
                         </row>
                     </rows>
                 </grid>

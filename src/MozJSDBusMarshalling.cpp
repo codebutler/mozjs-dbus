@@ -71,7 +71,6 @@ MozJSDBusMarshalling::appendArgs(DBusMessage      *message,
         PRUint16 dataType;
         rv = arg->GetDataType(&dataType);
         NS_ENSURE_SUCCESS(rv, rv);
-        printf ("Data type is %d \n", dataType);
 
         // This unwraps a basic type from a variant created by
         // DBUS.UInt32(), etc.
@@ -146,6 +145,7 @@ MozJSDBusMarshalling::unMarshallIter(int current_type, DBusMessageIter *iter)
     } else if (dbus_type_is_container(current_type)) {
         switch (current_type) {
             case DBUS_TYPE_ARRAY:
+            case DBUS_TYPE_VARIANT:
             {
                 variant = unMarshallArray(current_type, iter);
                 break;
@@ -156,6 +156,7 @@ MozJSDBusMarshalling::unMarshallIter(int current_type, DBusMessageIter *iter)
             }
             default:
             {
+                printf("Unknown data type\n");
                 break;
             }
         }
@@ -173,7 +174,7 @@ MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
     nsCOMPtr<nsIWritableVariant> variant =
         do_CreateInstance("@mozilla.org/variant;1", &rv);
     if (NS_FAILED(rv)) {
-        //PR_LOG(lm, PR_LOG_DEBUG, ("do Create Instance failed"));
+        printf("do Create Instance failed\n");
         return nsnull;
     }
 
@@ -252,7 +253,7 @@ MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
         }
         default:
         {
-            //PR_LOG(lm, PR_LOG_ERROR, ("Unknown data type"));
+            printf("Unknown data type\n");
             return nsnull;
         }
     } 
@@ -313,9 +314,8 @@ MozJSDBusMarshalling::getDBusTypeAsSignature(int type)
         CASE_DBUS_TYPE_AS_STRING(UINT64)
         CASE_DBUS_TYPE_AS_STRING(DOUBLE)
         CASE_DBUS_TYPE_AS_STRING(STRING)
-        //default:
-    //      PR_LOG(lm, PR_LOG_ERROR, 
-        //          ("Unknown or unsupported nsIDataType: %d.\n", type) );
+        default:
+            printf("Unknown or unsupported nsIDataType: %d.\n", type);
     }
 
     return _ret;
@@ -341,8 +341,6 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
     PRUint16 type;
     nsresult nv;
     nsresult rv;
-
-    printf("marshallVariant\n");
 
     param->GetDataType(&type);
     switch (type) {
@@ -558,7 +556,7 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             nsCAutoString utf8str = PromiseFlatCString(
                                         NS_ConvertUTF16toUTF8(utf16str));
             const char *utf8strbuf = utf8str.get();
-
+        
             MOZJSDBUS_CALL_OOMCHECK(
                 dbus_message_iter_append_basic(it, 
                                                DBUS_TYPE_STRING, 
@@ -580,8 +578,7 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
             break;
         }
         default:
-            //PR_LOG(lm, PR_LOG_ERROR, 
-            //      ("Unknown DataType.\n") );
+            printf("Unknown DataType.\n");
             return NS_ERROR_FAILURE;
     }
 
@@ -803,9 +800,8 @@ MozJSDBusMarshalling::getDataTypeSize(PRUint16 type)
         case nsIDataType::VTYPE_WSTRING_SIZE_IS: 
             _ret = -1; 
             break;
-       // default:
-          //PR_LOG(lm, PR_LOG_ERROR, 
-              //    ("Unknown or unsupported nsIDataType: %d.\n", type) );
+        default:
+           printf("Unknown or unsupported nsIDataType: %d.\n", type);
     }
     return _ret;
 
@@ -839,9 +835,8 @@ MozJSDBusMarshalling::getDataTypeAsDBusType(PRUint16 type)
         case nsIDataType::VTYPE_WCHAR_STR:
         case nsIDataType::VTYPE_WSTRING_SIZE_IS:
             _ret = DBUS_TYPE_STRING; break;
-    //    default:
-          //PR_LOG(lm, PR_LOG_ERROR, 
-              //    ("Unknown or unsupported nsIDataType: %d.\n", type) );
+        default:
+            printf("Unknown or unsupported nsIDataType: %d.\n", type);
     }
     return _ret;
 }

@@ -358,6 +358,10 @@ DBusConnection.prototype = {
 
         } else {
             objectInterface = iface;
+            
+            if (objectInterface == null) {
+                throw "An interface definition object must be specified."   
+            }
         }
 
         var proxy = new DBusProxyObject(this, serviceName, objectPath, objectInterface);

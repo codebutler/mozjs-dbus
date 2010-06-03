@@ -195,7 +195,7 @@ MozJSDBusCoreComponent::ConnectToSignal(const PRUint16    aBusType,
     matchRule += "',path='";
     matchRule += PromiseFlatCString(aObjectPath).get();
     matchRule += "'"; 
-    cout << "ADD MATCH: " << matchRule << "\n";
+
     dbus_bus_add_match(connection, matchRule.c_str(), &dbus_error);
 
     rv = CheckDBusError(dbus_error);

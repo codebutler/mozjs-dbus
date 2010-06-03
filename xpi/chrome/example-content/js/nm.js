@@ -24,25 +24,15 @@
 Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
 Components.utils.import("resource://mozjs_dbus/IPAddress.jsm");
 
-// NetworkManager does not support introspection, so we specify
-// what this interface supports.
-const NM_INTERFACE = {
-       name: "org.freedesktop.NetworkManager",
-    methods: [ 'getDevices',
-               'getActiveDevice',
-               'setActiveDevice',
-               'status' ]
-};
-
-const NM_IFACE_INTERFACE = {
-       name: "org.freedesktop.NetworkManager.Devices",
+const NM_INTERFACE = "org.freedesktop.NetworkManager";
+const NM_IFACE_INTERFACE = "org.freedesktop.NetworkManager.Devices";
+/*
     methods: [ 'getName', 'getIP4Address', 'getType', 'getActiveNetwork' ]
 };
+*/
 
-const NM_NETWORK_INTERFACE = {
-       name: "org.freedesktop.NetworkManager.Devices",
-    methods: [ 'getName' ]
-};
+const NM_NETWORK_INTERFACE = "org.freedesktop.NetworkManager.Devices";
+/*    methods: [ 'getName' ] */
 
 function setupNM ()
 {
@@ -50,24 +40,21 @@ function setupNM ()
         var nmDeviceList = document.getElementById("nmDeviceList");
 
         var bus = DBUS.systemBus;
-        
+      
         var nm = bus.getObject("org.freedesktop.NetworkManager",
                                "/org/freedesktop/NetworkManager",
                                NM_INTERFACE);
 
-        var devices = nm.getDevices();
+        var devices = nm.GetDevices();
 
         for (var x = 0; x < devices.length; x++) {
-            // Interface name is last part of path, avoid dbus call by
-            // just extracting that.
-            /*
-            var name = devices[x].split('/')[-1];
-            alert(devices[x] + "   " + name);
-            */
-
-            var device = bus.getObject("org.freedesktop.NetworkManager",
-                                       devices[x], NM_IFACE_INTERFACE);
-            var name = device.getName();
+        
+            var deviceProperties = bus.getObject('org.freedesktop.NetworkManager', 
+                                                 devices[x],
+                                                 'org.freedesktop.DBus.Properties');
+            
+            var name = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Interface');
+            
             nmDeviceList.appendItem(name, devices[x]);
         }
 
@@ -81,6 +68,7 @@ function setupNM ()
         
         updateDeviceInfo();
     } catch (e) {
+        alert(e);
         // XXX: Problem talking to network manager.
         nmDeviceList.appendItem("ERROR!!!", null);
         nmDeviceList.selectedIndex = 0;
@@ -94,25 +82,15 @@ function updateDeviceInfo()
         var bus = DBUS.systemBus;
 
         var deviceId = nmDeviceList.selectedItem.value;
-        var device = bus.getObject("org.freedesktop.NetworkManager",
-                       deviceId, NM_IFACE_INTERFACE);
+        
+        var deviceProperties = bus.getObject('org.freedesktop.NetworkManager', deviceId, 'org.freedesktop.DBus.Properties');
 
-        var ip = new IPAddress(device.getIP4Address());
+        var name = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Interface');
+        var ip   = new IPAddress(deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Ip4Address'));
+        var type = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'DeviceType')
 
-        var type = device.getType();
-
-        document.getElementById('nmDeviceName').value = device.getName();
-        document.getElementById('nmIPAddress').value = ip.toString();
-
-        if (type == 2) {
-            var network = bus.getObject("org.freedesktop.NetworkManager",
-                                        device.getActiveNetwork(),
-                                        NM_NETWORK_INTERFACE);
-
-            document.getElementById('nmESSID').value = network.getName();
-        } else {
-            document.getElementById('nmESSID').value = "(Not wireless)";
-        }
+        document.getElementById('nmDeviceName').value = name;
+        document.getElementById('nmIPAddress').value  = ip.toString();
     } catch (e) {
         alert(e);
     }
