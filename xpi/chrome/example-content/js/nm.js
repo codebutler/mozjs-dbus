@@ -53,7 +53,7 @@ function setupNM ()
                                                  devices[x],
                                                  'org.freedesktop.DBus.Properties');
             
-            var name = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Interface')[0];
+            var name = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Interface');
             
             nmDeviceList.appendItem(name, devices[x]);
         }
@@ -85,7 +85,7 @@ function updateDeviceInfo()
         
         var deviceProperties = bus.getObject('org.freedesktop.NetworkManager', deviceId, 'org.freedesktop.DBus.Properties');
 
-        var name = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Interface')[0];
+        var name = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Interface');
         var ip   = new IPAddress(deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'Ip4Address'));
         var type = deviceProperties.Get('org.freedesktop.NetworkManager.Device', 'DeviceType')
 

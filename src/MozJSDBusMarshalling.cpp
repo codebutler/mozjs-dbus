@@ -98,12 +98,12 @@ nsIVariant**
 MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter,
                                       PRUint32 *retLength)
 {
-    nsCOMPtr<nsIMutableArray>       arrayItems;
-    nsCOMPtr<nsIWritableVariant>    variant;
-    int                             current_type;
-    nsIVariant**                    variants;
-    PRUint32                        length;
-    nsCOMPtr<nsIVariant>            item;
+    nsCOMPtr<nsIMutableArray> arrayItems;
+    nsCOMPtr<nsIVariant>      variant;
+    int                       current_type;
+    nsIVariant**              variants;
+    PRUint32                  length;
+    nsCOMPtr<nsIVariant>      item;
     
     arrayItems = do_CreateInstance("@mozilla.org/array;1");
 
@@ -134,10 +134,10 @@ MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter,
 }
 
 
-nsCOMPtr<nsIWritableVariant>
+nsCOMPtr<nsIVariant>
 MozJSDBusMarshalling::unMarshallIter(int current_type, DBusMessageIter *iter)
 {
-    nsCOMPtr<nsIWritableVariant>    variant;
+    nsCOMPtr<nsIVariant> variant;
     nsresult rv;
     
     if (dbus_type_is_basic(current_type)) {
@@ -145,9 +145,22 @@ MozJSDBusMarshalling::unMarshallIter(int current_type, DBusMessageIter *iter)
     } else if (dbus_type_is_container(current_type)) {
         switch (current_type) {
             case DBUS_TYPE_ARRAY:
-            case DBUS_TYPE_VARIANT:
             {
                 variant = unMarshallArray(current_type, iter);
+                break;
+            }            
+            case DBUS_TYPE_VARIANT:
+            {
+                DBusMessageIter subiter;
+                PRUint32        length;
+                
+                dbus_message_iter_recurse(iter, &subiter);
+                
+                nsIVariant** array = getVariantArray(&subiter, &length);
+                
+                if (length > 0)
+                    variant = array[0];
+                    
                 break;
             }
             case DBUS_TYPE_DICT_ENTRY:
@@ -167,7 +180,7 @@ MozJSDBusMarshalling::unMarshallIter(int current_type, DBusMessageIter *iter)
     return variant;
 }
 
-nsCOMPtr<nsIWritableVariant>
+nsCOMPtr<nsIVariant>
 MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
 {
     nsresult rv;
@@ -257,10 +270,10 @@ MozJSDBusMarshalling::unMarshallBasic(int type, DBusMessageIter *iter)
             return nsnull;
         }
     } 
-    return variant;
+    return (nsIVariant *) variant;
 }
 
-nsCOMPtr<nsIWritableVariant>
+nsCOMPtr<nsIVariant>
 MozJSDBusMarshalling::unMarshallArray(int type, DBusMessageIter *iter)
 {
     DBusMessageIter                 subiter;
@@ -286,7 +299,7 @@ MozJSDBusMarshalling::unMarshallArray(int type, DBusMessageIter *iter)
             return NULL;
         }
 
-        return variant;
+        return (nsIVariant *) variant;
     } else {
         return NULL;
     }

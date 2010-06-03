@@ -179,7 +179,7 @@ function avahiFound() {
             devices = devices.map(function (deviceObjectPath) {
                 var deviceProperties = bus.getObject("org.freedesktop.NetworkManager",
                                                      deviceObjectPath, "org.freedesktop.DBus.Properties");
-                var name = deviceProperties.Get("org.freedesktop.NetworkManager.Device", "Interface")[0];
+                var name = deviceProperties.Get("org.freedesktop.NetworkManager.Device", "Interface");
                 return name;
             });
 

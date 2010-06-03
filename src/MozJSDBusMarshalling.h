@@ -78,9 +78,9 @@ public:
             nsIVariant *, DBusMessageIter *);
 
 private:
-    static nsCOMPtr<nsIWritableVariant> unMarshallIter(int type, DBusMessageIter *iter);
-    static nsCOMPtr<nsIWritableVariant> unMarshallBasic(int type, DBusMessageIter *iter);
-    static nsCOMPtr<nsIWritableVariant> unMarshallArray(int type, DBusMessageIter *iter);
+    static nsCOMPtr<nsIVariant> unMarshallIter(int type, DBusMessageIter *iter);
+    static nsCOMPtr<nsIVariant> unMarshallBasic(int type, DBusMessageIter *iter);
+    static nsCOMPtr<nsIVariant> unMarshallArray(int type, DBusMessageIter *iter);
 
     static PRBool JSObjectHasVariantValues(JSContext* cx, JSObject* aObj);
     static nsresult marshallJSObject(JSContext* cx, JSObject* aObj, DBusMessageIter* iter);
