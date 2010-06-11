@@ -24,28 +24,31 @@
 
 Components.utils.import("resource://mozjs_dbus/DBUS.jsm");
 
-function setupService () {
-    var testObj = new DBusObject();
-    var iface = testObj.defineInterface("com.codebutler.MozJSDBus.TestInterface");
-    iface.defineMethod('sum', 'ii', 'i', function(first, second) {
-        return first+second;
-    });
-    iface.defineMethod('hello', '', 's', function() {
-        return "Hello World!";
-    });
-    iface.defineSignal('somethingHappen', 'ssi');
-
+function setupService () 
+{
     var bus = DBUS.sessionBus;
+    
     var service = bus.requestService('com.codebutler.MozJSDBus.TestService');
-    service.registerObject('/Test', testObj);
+    
+    var iface = null;
+    
+    service.registerObject('/Test', function () {
+        this.defineInterface("com.codebutler.MozJSDBus.TestInterface", function () {
+            iface = this;
+            this.defineMethod('sum', 'ii', 'i', function(first, second) {
+                return first+second;
+            });
+            
+            this.defineMethod('hello', '', 's', function() {
+                return "Hello World!";
+            });
 
-    //alert(testObj.interfaces['org.freedesktop.DBus.Introspectable'].methods['Introspect']['method']());
+            this.defineSignal('somethingHappen', 'ssi');
+        });
+    });
 
     var emitSignalButton = document.getElementById('emitSignalButton');
-
-    var emitSignal = function () {
+    emitSignalButton.addEventListener('command', function () {
         iface.emitSignal('somethingHappen', 'foo', 'bar', 42);
-    };
-
-    emitSignalButton.addEventListener('command', emitSignal, true);
+    }, true);
 }

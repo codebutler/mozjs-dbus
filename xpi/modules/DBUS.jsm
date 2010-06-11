@@ -118,7 +118,7 @@ function DBusObject () {
 };
 
 DBusObject.prototype = {
-    defineInterface: function (name) {
+    defineInterface: function (name, block) {
         if (this.interfaces[name] != null) {
             throw "An interface by that name has already been defined.";
         }
@@ -126,12 +126,15 @@ DBusObject.prototype = {
         var iface = new DBusInterface(this, name);
         
         this.interfaces[name] = iface;
+        
+        if (block) {
+            block.apply(iface);
+        }
 
         return iface;
     },
 
     methodHandler: function (interfaceName, methodName, args) {
-        dump("methodHandler\n");
         var iface = this.interfaces[interfaceName];
         if (iface != null) {
             var methodInfo = iface.methods[methodName];
@@ -408,8 +411,18 @@ function DBusService(connection, serviceName) {
 };
 
 DBusService.prototype = {
-    registerObject: function(objectPath, obj) {
-        var handler = function (interfaceName, methodName, args) { 
+    registerObject: function(objectPath, objectOrBlock) {
+        var block = null;
+        var obj   = null;
+        
+        if (typeof(objectOrBlock) == "function") {
+            obj = new DBusObject();
+            block = objectOrBlock;
+        } else {
+            obj = objectOrBlock;
+        }
+        
+        var handler = function (interfaceName, methodName, args) {
             return obj.methodHandler(interfaceName, methodName, args);
         };
 
@@ -420,6 +433,10 @@ DBusService.prototype = {
         obj.service = this;
 
         this.objects[objectPath] = obj;
+        
+        if (block) {
+            block.apply(obj);
+        }
     },
 
     unregisterObject: function(objectPath) {
