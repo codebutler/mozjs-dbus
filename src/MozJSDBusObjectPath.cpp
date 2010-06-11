@@ -1,5 +1,5 @@
-/*
- * MozJSDBusCoreComponentModule.cpp:
+/* 
+ * MozJSDBusObjectPath.cpp:
  *
  * Authors:
  *   Eric Butler <eric@codebutler.com>
@@ -20,30 +20,45 @@
  *  along with mozjs-dbus.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+ 
+#include <stdlib.h>
+#include <iostream>
+#include <string>
+#include <stdio.h>
+using namespace std;
 
-#include "nsIGenericFactory.h"
-#include "nsIModule.h"
-#include "MozJSDBusCoreComponent.h"
+#include "IMozJSDBusCoreComponent.h"
 #include "MozJSDBusObjectPath.h"
 
-NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(MozJSDBusCoreComponent, Init)
-NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(MozJSDBusObjectPath, Init)
+#include "nsStringAPI.h"
 
-static const nsModuleComponentInfo components[] =
+NS_IMPL_ISUPPORTS1(MozJSDBusObjectPath, IMozJSDBusObjectPath)
+
+MozJSDBusObjectPath::MozJSDBusObjectPath()
 {
-    {
-       MY_COMPONENT_CLASSNAME, 
-       MY_COMPONENT_CID,
-       MY_COMPONENT_CONTRACTID,
-       MozJSDBusCoreComponentConstructor,
-    },    
-    {
-       MOZJS_DBUS_OBJECT_PATH_CLASSNAME, 
-       MOZJS_DBUS_OBJECT_PATH_CID,
-       MOZJS_DBUS_OBJECT_PATH_CONTRACTID,
-       MozJSDBusObjectPathConstructor,
-    }
-};
+  /* member initializers and constructor code */
+}
 
-NS_IMPL_NSGETMODULE(MozJSDBusCoreComponentModule, components) 
+MozJSDBusObjectPath::~MozJSDBusObjectPath()
+{
+  /* destructor code */
+}
 
+nsresult
+MozJSDBusObjectPath::Init()
+{
+    return NS_OK;
+}
+
+/* attribute AUTF8String path; */
+NS_IMETHODIMP MozJSDBusObjectPath::GetPath(nsACString & aPath)
+{
+    aPath.Assign(mPath);
+    return NS_OK;
+}
+
+NS_IMETHODIMP MozJSDBusObjectPath::SetPath(const nsACString & aPath)
+{
+    mPath = aPath;
+    return NS_OK;
+}

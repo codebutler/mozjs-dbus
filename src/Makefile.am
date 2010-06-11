@@ -32,6 +32,7 @@ IDL_NAME = IMozJSDBusCoreComponent
 
 SOURCES = MozJSDBusCoreComponent.cpp \
           MozJSDBusCoreComponentModule.cpp \
+          MozJSDBusObjectPath.cpp \
           MozJSDBusMarshalling.cpp
 
 CPPFLAGS = -shared -fno-rtti -fPIC

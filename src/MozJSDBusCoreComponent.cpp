@@ -37,6 +37,10 @@ using namespace std;
 #include <dbus/dbus-glib-lowlevel.h>
 
 #include "nsStringAPI.h"
+#include "nsIMutableArray.h"
+#include "nsComponentManagerUtils.h"
+#include "nsISupportsPrimitives.h"
+#include "nsIXPConnect.h"
 
 static nsresult CheckDBusError(DBusError& aError);
 
@@ -132,7 +136,6 @@ MozJSDBusCoreComponent::CallMethod(const PRUint16    aBusType,
     MozJSDBusMarshalling::appendArgs(message, &iter, aArgsLength, aArgs);
 
     if (aCallback == NULL) {
-    
         reply = dbus_connection_send_with_reply_and_block(connection, message,
                                                           -1, &dbus_error);
         dbus_message_unref(message);
@@ -142,14 +145,17 @@ MozJSDBusCoreComponent::CallMethod(const PRUint16    aBusType,
 
         dbus_message_iter_init(reply, &iter);
 
-        variant = MozJSDBusMarshalling::getVariantArray(&iter, &length)[0];
-        
-        if (variant) {
-            NS_ADDREF(*_retval = variant);
-            return NS_OK;
-        } else {
-            return NS_ERROR_FAILURE;
+        nsIVariant **variants = MozJSDBusMarshalling::getVariantArray(&iter, &length);
+
+        // FIXME: Support multiple return values?
+        if (length > 0) {
+            variant = variants[0];
+            if (variant) {
+                NS_ADDREF(*_retval = variant);
+            }
         }
+        
+        return NS_OK;
     } else {
         DBusPendingCall *pending = NULL;
         
@@ -379,6 +385,39 @@ MozJSDBusCoreComponent::GetConnection(const PRUint16 aBusType)
   }
 
   return connection;
+}
+
+NS_IMETHODIMP
+MozJSDBusCoreComponent::SplitSignature(const nsACString &string, nsIArray** aResult)
+{
+    const char *cstr = PromiseFlatCString(string).get();
+    
+    nsCOMPtr<nsIMutableArray> array = do_CreateInstance("@mozilla.org/array;1");
+    
+    DBusSignatureIter iter;
+
+    dbus_signature_iter_init(&iter, cstr);
+
+    while (dbus_signature_iter_get_current_type(&iter) != DBUS_TYPE_INVALID) {
+        char *sig = dbus_signature_iter_get_signature(&iter);
+        
+        printf("Got sig: %s\n", sig);
+        
+        nsresult rv;
+        nsCOMPtr<nsISupportsCString> argStr;
+        argStr = do_CreateInstance(NS_SUPPORTS_CSTRING_CONTRACTID, &rv);
+        argStr->SetData(nsCString(sig));
+
+        rv = array->AppendElement(argStr, PR_FALSE);
+        NS_ENSURE_SUCCESS(rv, rv);
+                
+        dbus_signature_iter_next(&iter);
+    }
+
+    *aResult = array;
+    NS_ADDREF(*aResult);
+
+    return NS_OK;
 }
 
 /* Utility function */

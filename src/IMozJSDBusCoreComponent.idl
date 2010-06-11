@@ -23,6 +23,7 @@
 
 #include "nsISupports.idl"
 #include "nsIPropertyBag.idl"
+#include "nsIArray.idl"
 
 [function, scriptable, uuid(7287d9ec-1a4b-40c5-9e6e-2a79dde63f60)]
 interface IJSCallback : nsISupports
@@ -77,5 +78,12 @@ interface IMozJSDBusCoreComponent : nsISupports
 
   void UnregisterObject(in PRUint16 aBusType,
                         in AUTF8String aObjectPath);
+                        
+  nsIArray SplitSignature(in AUTF8String aSignature);
 };
 
+[scriptable, uuid(d987be60-54ac-012d-e4ff-64b9e8be7216)]
+interface IMozJSDBusObjectPath : nsISupports
+{
+    attribute AUTF8String path;
+};

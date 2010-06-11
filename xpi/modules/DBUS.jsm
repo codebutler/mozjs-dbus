@@ -63,8 +63,10 @@ function DBusObject () {
             };
 
             var appendArgs = function (element, argNames, signature, direction) {
-                for (var x = 0; x < signature.length; x++) {
-                    var type = signature[x];
+            
+                var signatureParts = DBUS.splitSignature(signature);
+                for (var x = 0; x < signatureParts.length; x++) {
+                    var type = signatureParts[x];
                     var argXML;
                     if (direction != null) {
                         if (argNames == null) {
@@ -194,6 +196,12 @@ var DBUS = {
             this._sessionBus = new DBusConnection("session");
         }
         return this._sessionBus;
+    },
+    
+    splitSignature: function (sig) {
+        return ArrayConverter.JSArray(DBUS.core.SplitSignature(sig)).map(function (o) {
+            return o.QueryInterface(Components.interfaces.nsISupportsCString).data;
+        });
     }
 };
 
@@ -204,11 +212,18 @@ var types = [ 'Double', 'Float', 'Int16', 'Int32', 'Int64', 'Uint16',
 types.forEach(function (type) {
     DBUS[type] = function (val) {
         var variant = Cc["@mozilla.org/variant;1"]
-            .createInstance(Ci.nsIWritableVariant); 
+            .createInstance(Ci.nsIWritableVariant);
         variant['setAs' + type](val);
         return variant;
     };
 });
+
+DBUS.ObjectPath = function (val) {
+    var obj = Cc["@codebutler.com/MozJSDBus/MozJSDBusObjectPath;1"]
+        .createInstance(Components.interfaces.IMozJSDBusObjectPath);
+    obj.path = val;
+    return obj;
+};
 
 var klass = Components.classes["@codebutler.com/MozJSDBus/MozJSDBusCoreComponent;1"];
 DBUS.core = klass.createInstance(Components.interfaces.IMozJSDBusCoreComponent);

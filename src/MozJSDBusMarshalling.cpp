@@ -111,7 +111,7 @@ MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter,
             != DBUS_TYPE_INVALID)
     {
         variant = unMarshallIter(current_type, iter);
-        
+                
         if (variant != NULL) {
             arrayItems->AppendElement(variant, PR_FALSE);
         }
@@ -123,13 +123,16 @@ MozJSDBusMarshalling::getVariantArray(DBusMessageIter *iter,
 
     variants = new nsIVariant*[length];
 
-    for (PRUint32 x = 0; x < length; x++) {
-        item = do_QueryElementAt(arrayItems, x);
-        variants[x] = item;
-        NS_ADDREF(item);
+    if (length > 0) {
+        for (PRUint32 x = 0; x < length; x++) {
+            item = do_QueryElementAt(arrayItems, x);
+            variants[x] = item;
+            NS_ADDREF(item);
+        }
     }
 
     *retLength = length;
+    
     return variants;
 }
 
@@ -452,32 +455,65 @@ MozJSDBusMarshalling::marshallVariant(DBusMessage     *msg,
                 rv = marshallJSObject(cx, jsObject, it);
                 NS_ENSURE_SUCCESS(rv, rv);
                 } //for the autorequest
-            } else {
-                printf ("Info was null !!\n");
-            }
 
-            /*DBusMessageIter sub;
-            dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY,
-                                             "{sv}", &sub);
-                                             dbus_message_iter_close_container(it, &sub);*/
+                break;
+            } 
             
-            //printf("IID %s\n", iid.ToString()); 
+            // Check for ObjectPath
+            nsCOMPtr<IMozJSDBusObjectPath> objectPath = do_QueryInterface(interface);
+            if (objectPath != NULL) {
+                nsCAutoString pathString;
+                objectPath->GetPath(pathString);
+
+                const char *cstr = PromiseFlatCString(pathString).get();
+                
+                MOZJSDBUS_CALL_OOMCHECK(
+                    dbus_message_iter_append_basic(it, 
+                                           DBUS_TYPE_OBJECT_PATH,
+                                           &cstr));
+               break;               
+            }
+     
+            printf("Unknown argument type!\n");            
             break;
         }
         case nsIDataType::VTYPE_ARRAY: {
+            printf("Array!!\n");
+            
             DBusMessageIter sub; 
             PRUint16 type;
             nsIID iid;
             PRUint32 count;
             void *data;
+            
+            //   dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY, DBUS_TYPE_VARIANT_AS_STRING, &sub);
 
             nv = param->GetAsArray(&type , &iid , &count , &data);
             NS_ENSURE_SUCCESS(nv, nv);
+            
+            nsIVariant *ptr = *((nsIVariant**)data);
+                                             
+            for (PRUint32 i = 0; i < count; i++, ptr = *((nsIVariant**)data + i)) {                
+                printf("Array item!\n");
+                
+              //  nv = marshallVariant(msg, ptr, &sub);
+                nv = marshallVariant(msg, ptr, it);
+                NS_ENSURE_SUCCESS(nv, nv);
+                
+                printf("End array item!\n");
+            }
+            
+            //   dbus_message_iter_close_container(it, &sub);
 
+            printf("End array!\n");
+            break;
+            
             // if type == VTYPE_INTERFACE_IS, it's an mixed array
             // all D-BUS array elements must be the same, 
             // so we transfom array to struct
+            /*
             if (type == nsIDataType::VTYPE_INTERFACE_IS) {
+            printf("EHHH\n");
                 if (!iid.Equals(NS_GET_IID(nsIVariant))) {
                     return NS_ERROR_FAILURE;
                 } 
